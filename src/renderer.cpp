@@ -37,7 +37,7 @@ void Render::drawFrame(const Loader& obj_loader)
 
     for(auto& obj : obj_loader.objects)
     {
-        m_pipeline->set_state(obj.vertexShader, obj.fragmentShader, m_width*m_height/int(obj.indices.size())*3*500, PrimitiveType::TRIANGLE);
+        m_pipeline->set_state(obj.vertexShader, obj.fragmentShader, m_width*m_height/int(obj.indices.size())*3*1000, PrimitiveType::TRIANGLE);
         if(m_pipeline->primitiveType()==PrimitiveType::POINT)
             for(int i=0; i<obj.vertices.size(); i++)
             {

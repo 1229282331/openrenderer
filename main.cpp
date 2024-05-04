@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
     std::vector<std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), point_VertexShader);
-    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), depth_FragmentShader);
+    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), triangle_FragmentShader);
     // modelMats[0] = translate(Eigen::Vector3f(-1.f, 0.f, 0.f));
     // modelMats[1] = translate(Eigen::Vector3f(1.f, 0.f, 0.f));
 
