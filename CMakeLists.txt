@@ -37,8 +37,14 @@ message(${CMAKE_SOURCE_DIR})
 set(EIGEN_INCLUDE ${THIRD_PARTY_DIR}/eigen)
 set(SDL2_INCLUDE ${THIRD_PARTY_DIR}/SDL2/include)
 set(SDL2image_INCLUDE ${THIRD_PARTY_DIR}/SDL2_image/include)
-set(SDL2_LIB ${THIRD_PARTY_DIR}/SDL2/lib/SDL2d.lib ${THIRD_PARTY_DIR}/SDL2/lib/SDL2maind.lib ${THIRD_PARTY_DIR}/SDL2/lib/SDL2-staticd.lib)
-set(SDL2image_LIB ${THIRD_PARTY_DIR}/SDL2_image/lib/SDL2_imaged.lib)
+set(SDL2_LIB 
+  ${THIRD_PARTY_DIR}/SDL2/lib/SDL2d.lib 
+  ${THIRD_PARTY_DIR}/SDL2/lib/SDL2maind.lib 
+  ${THIRD_PARTY_DIR}/SDL2/lib/SDL2-staticd.lib
+)
+set(SDL2image_LIB 
+  ${THIRD_PARTY_DIR}/SDL2_image/lib/SDL2_imaged.lib
+)
 
 set(TARGET_NAME ${CMAKE_PROJECT_NAME})
 # 设置VS中的启动项目
