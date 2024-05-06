@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ctime>
 #include "geometry.hpp"
 #include "loader.hpp"
 #include "pipeline.hpp"
