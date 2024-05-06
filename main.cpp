@@ -34,8 +34,8 @@ int main(int argc, char* argv[])
     sycl::device device = q.get_device();
     std::cout << device.get_info<sycl::info::device::name>() << std::endl;
 #endif
-    // const std::vector<std::string> obj_paths = {"../../../obj/spot_triangulated_good.obj", "../../../obj/african_head.obj"};
-    std::vector<std::string> obj_paths = {"C:/openrenderer/obj/spot_triangulated_good.obj"};
+    // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/spot_triangulated_good.obj", "C:/vscode_files/openrenderer/obj/african_head.obj"};
+    std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/spot_triangulated_good.obj"};
 
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
     }
     
     // SDL_Delay(2000);
-    Gui::self().save_image("C:/openrenderer/result.png", Gui::self().textures[0]);
+    Gui::self().save_image("C:/vscode_files/openrenderer/result.png", Gui::self().textures[0]);
 
     Gui::self().quit();
     return 0;    

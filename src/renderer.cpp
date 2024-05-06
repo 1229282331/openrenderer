@@ -33,7 +33,7 @@ void Render::drawFrame(const Loader& obj_loader)
     }
 
     m_framebuffers->clear(BufferType::COLOR);
-    m_framebuffers->clear(BufferType::DEPTH);
+    // m_framebuffers->clear(BufferType::DEPTH);
 
     for(auto& obj : obj_loader.objects)
     {
@@ -62,13 +62,13 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline->run(obj.id);
             }
     }
-    for(int i=0; i<m_framebuffers->width*m_framebuffers->height; i++)
-    {
-        int gray_value = int(m_framebuffers->z_buffer[i] * 255.f);
-        m_framebuffers->depth_buffer->buffer[i*3] = gray_value;
-        m_framebuffers->depth_buffer->buffer[i*3+1] = gray_value;
-        m_framebuffers->depth_buffer->buffer[i*3+2] = gray_value;
-    }
+    // for(int i=0; i<m_framebuffers->width*m_framebuffers->height; i++)
+    // {
+    //     int gray_value = int(m_framebuffers->z_buffer[i] * 255.f);
+    //     m_framebuffers->depth_buffer->buffer[i*3] = gray_value;
+    //     m_framebuffers->depth_buffer->buffer[i*3+1] = gray_value;
+    //     m_framebuffers->depth_buffer->buffer[i*3+2] = gray_value;
+    // }
 }
 
 
