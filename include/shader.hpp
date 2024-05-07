@@ -23,7 +23,8 @@ inline Eigen::Vector3f point_FragmentShader(const Point& input)
 inline Eigen::Vector3f triangle_FragmentShader(const Point& input)
 {
     Eigen::Vector3f color = {1.f, 1.f, 1.f};
-    float cos_a = ubo.faceNormal.dot(ubo.lightDir);
+    // float cos_a = ubo.faceNormal.dot(ubo.lightDir);
+    float cos_a = input.v.normal.dot(ubo.lightDir);
     if(cos_a < 0.f)
         return {0.f, 0.f, 0.f};
     return cos_a * color;

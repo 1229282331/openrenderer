@@ -10,11 +10,12 @@ extern openrenderer::Uniform ubo;
 namespace openrenderer{
 
 enum class PrimitiveType{ POINT=1, LINE, TRIANGLE };
+enum class ShadeFrequency{ FLAT, GOURAUD };
 
 class Pipeline{
 public:
-    Pipeline(PrimitiveType primitive, std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc, Framebuffers* framebuffers) 
-        : m_primitiveType(primitive), m_vertexShaderFunc(vertexShaderFunc), m_fragmentShaderFunc(fragmentShaderFunc), m_framebuffers(framebuffers)
+    Pipeline(PrimitiveType primitive, ShadeFrequency freq, std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc, Framebuffers* framebuffers) 
+        : m_primitiveType(primitive), m_shadeFrequency(freq), m_vertexShaderFunc(vertexShaderFunc), m_fragmentShaderFunc(fragmentShaderFunc), m_framebuffers(framebuffers)
     { 
         clear(); 
     }
@@ -23,7 +24,7 @@ public:
     void update(Vertex v);
     void update(Vertex v0, Vertex v1, int idx0, int idx1);
     void update(Vertex v0, Vertex v1, Vertex v2, int idx0, int idx1, int idx2);
-    void set_state(std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, std::function<Eigen::Vector3f(const Point&)> fragmentShader, int max_rasterSize=3000, PrimitiveType primitive=PrimitiveType::TRIANGLE);
+    void set_state(std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, std::function<Eigen::Vector3f(const Point&)> fragmentShader, int max_rasterSize=3000, PrimitiveType primitive=PrimitiveType::TRIANGLE, ShadeFrequency freq=ShadeFrequency::FLAT);
     void run(int obj_id);
 
     PrimitiveType primitiveType() { return m_primitiveType; }
@@ -32,6 +33,7 @@ public:
 
 private:
     PrimitiveType                                                          m_primitiveType;
+    ShadeFrequency                                                         m_shadeFrequency;
     Framebuffers*                                                          m_framebuffers;
     Vertex                                                                 m_vertexs[3];
     vertex_shader_out                                                      m_attrs[3];
@@ -56,6 +58,6 @@ private:
 
 int line(const Point* input, Point* raster_region, int max_size);
 
-int triangle(const Point* input, Point* raster_region, int max_size);
+int triangle(const Point* input, Point* raster_region, int max_size, ShadeFrequency freq);
 
 }
