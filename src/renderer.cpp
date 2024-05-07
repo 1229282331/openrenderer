@@ -15,9 +15,11 @@ Render::~Render()
     m_pipeline.reset();
 }
 
-void Render::init_pipeline(PrimitiveType primitive, std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc)
+void Render::init_pipeline(PrimitiveType primitive, ShadeFrequency freq, 
+                            std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, 
+                            std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc)
 {
-    m_pipeline = std::make_unique<Pipeline>(primitive, vertexShaderFunc, fragmentShaderFunc, m_framebuffers.get());
+    m_pipeline = std::make_unique<Pipeline>(primitive, freq, vertexShaderFunc, fragmentShaderFunc, m_framebuffers.get());
 }
 
 
@@ -37,7 +39,7 @@ void Render::drawFrame(const Loader& obj_loader)
 
     for(auto& obj : obj_loader.objects)
     {
-        m_pipeline->set_state(obj.vertexShader, obj.fragmentShader, m_width*m_height/int(obj.indices.size())*3*1000, PrimitiveType::TRIANGLE);
+        m_pipeline->set_state(obj.vertexShader, obj.fragmentShader, m_width*m_height/int(obj.indices.size())*3*1000, PrimitiveType::TRIANGLE, ShadeFrequency::FLAT);
         if(m_pipeline->primitiveType()==PrimitiveType::POINT)
             for(int i=0; i<obj.vertices.size(); i++)
             {

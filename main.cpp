@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
     std::cout << device.get_info<sycl::info::device::name>() << std::endl;
 #endif
     // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/spot_triangulated_good.obj", "C:/vscode_files/openrenderer/obj/african_head.obj"};
-    std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/spot_triangulated_good.obj"};
+    std::vector<std::string> obj_paths = {"../../obj/spot_triangulated_good.obj"};
 
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     Gui::self().create_texture(SDL_PIXELFORMAT_RGB24);
     /*3. init renderer*/
     Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
-    render.init_pipeline(PrimitiveType::TRIANGLE, point_VertexShader, triangle_FragmentShader);
+    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::FLAT, point_VertexShader, triangle_FragmentShader);
     /*4.init scene*/
     Eigen::Vector3f eyePos(0.f, 0.f, -2.f);
     ubo.init(modelMats, eyePos, w/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 45.f, 0.1f, 10.f, {0.f, 0.f, 1.f});
@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
     }
     
     // SDL_Delay(2000);
-    Gui::self().save_image("C:/vscode_files/openrenderer/result.png", Gui::self().textures[0]);
+    Gui::self().save_image("../../result.png", Gui::self().textures[0]);
 
     Gui::self().quit();
     return 0;    

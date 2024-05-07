@@ -46,11 +46,14 @@ void Pipeline::clear()
 
 }
 
-void Pipeline::set_state(std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, std::function<Eigen::Vector3f(const Point&)> fragmentShader, int max_rasterSize, PrimitiveType primitive)
+void Pipeline::set_state(std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, 
+                            std::function<Eigen::Vector3f(const Point&)> fragmentShader, 
+                            int max_rasterSize, PrimitiveType primitive, ShadeFrequency freq)
 {
     m_vertexShaderFunc = vertexShader;
     m_fragmentShaderFunc = fragmentShader;
     m_primitiveType = primitive;
+    m_shadeFrequency = freq;
     m_rasterSize = 0;
     if(max_rasterSize > m_maxRasterSize)
     {
@@ -125,7 +128,7 @@ void Pipeline::rasterization()
     else if(m_primitiveType==PrimitiveType::LINE)
         m_rasterSize = line(m_primitve, m_rasterPoints, m_maxRasterSize);
     else if(m_primitiveType==PrimitiveType::TRIANGLE)
-        m_rasterSize = triangle(m_primitve, m_rasterPoints, m_maxRasterSize);
+        m_rasterSize = triangle(m_primitve, m_rasterPoints, m_maxRasterSize, m_shadeFrequency);
 }
 
 Eigen::Vector3f Pipeline::fragment_shader(const Point& point_input)
@@ -195,7 +198,7 @@ bool Pipeline::test_depth(int x, int y, float z, int width, int height, float* z
     return false;
 }
 
-int triangle(const Point* input, Point* raster_region, int max_size)
+int triangle(const Point* input, Point* raster_region, int max_size, ShadeFrequency freq)
 {
     Eigen::Vector2i box_min(4096, 2160); 
     Eigen::Vector2i box_max(0, 0);
@@ -204,21 +207,27 @@ int triangle(const Point* input, Point* raster_region, int max_size)
     box_max.x() = std::max(input[0].screen_pos.x(), std::max(input[1].screen_pos.x(), input[2].screen_pos.x()));
     box_max.y() = std::max(input[0].screen_pos.y(), std::max(input[1].screen_pos.y(), input[2].screen_pos.y()));
     int num = 0;
-    for(int x=box_min.x(); x<=box_max.x(); x++)
-        for(int y=box_min.y(); y<=box_max.y(); y++)
-        {
-            Eigen::Vector3f bc_screen = barycentric(input, Eigen::Vector2i(x, y));
-            if(bc_screen.x()<0 || bc_screen.y()<0 || bc_screen.z()<0)
-                continue;
-            float z = bc_screen.x()*input[0].z + bc_screen.y()*input[1].z + bc_screen.z()*input[2].z;
-            raster_region[num].screen_pos = {x, y};
-            raster_region[num].z = z;
-            num++;
-            if(num > max_size) 
+
+    if(freq==ShadeFrequency::FLAT)
+    {
+        Eigen::Vector3f faceNormal = (input[2].v.pos-input[0].v.pos).cross(input[1].v.pos-input[0].v.pos).normalized();
+        for(int x=box_min.x(); x<=box_max.x(); x++)
+            for(int y=box_min.y(); y<=box_max.y(); y++)
             {
-                return num;
+                Eigen::Vector3f bc_screen = barycentric(input, Eigen::Vector2i(x, y));
+                if(bc_screen.x()<0 || bc_screen.y()<0 || bc_screen.z()<0)
+                    continue;
+                float z = bc_screen.x()*input[0].z + bc_screen.y()*input[1].z + bc_screen.z()*input[2].z;
+                raster_region[num].screen_pos = {x, y};
+                raster_region[num].z = z;
+                raster_region[num].v.normal = faceNormal;
+                num++;
+                if(num > max_size) 
+                {
+                    return num;
+                }
             }
-        }
+    }
 
     return num;
 }

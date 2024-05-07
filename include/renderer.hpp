@@ -13,7 +13,7 @@ public:
     Render(int w, int h, bool enable_color=true, bool enable_depth=false, PixelFormat color_format=PixelFormat::ARGB8888, PixelFormat depth_format=PixelFormat::GRAY8);
     ~Render();
 
-    void init_pipeline(PrimitiveType primitive, std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc);
+    void init_pipeline(PrimitiveType primitive, ShadeFrequency freq, std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc);
     void drawFrame(const Loader& obj_loader);
 
     int width() const { return m_width; }

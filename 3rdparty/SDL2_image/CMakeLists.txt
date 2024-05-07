@@ -57,7 +57,7 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 option(CMAKE_POSITION_INDEPENDENT_CODE "Build static libraries with -fPIC" ON)
-option(BUILD_SHARED_LIBS "Build the library as a shared library" ON)
+option(BUILD_SHARED_LIBS "Build the library as a shared library" OFF)
 
 cmake_dependent_option(SDL2IMAGE_INSTALL "Enable SDL2_image install target" ${SDL2IMAGE_ROOTPROJECT} "${sdl2image_install_enableable}" OFF)
 option(SDL2IMAGE_DEPS_SHARED "Load dependencies dynamically" ON)
