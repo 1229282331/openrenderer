@@ -5,8 +5,9 @@
 namespace openrenderer{
 
 bool Loader::load_obj(const std::vector<std::string>& obj_paths, 
-                std::vector<std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
+                std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
                 std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
+                std::vector<Texture*> pcolorTextures, std::vector<Texture*> pnormalTextures,
                 const std::vector<Eigen::Matrix4f>& modelMats)
 {
     for(int i=0; i<obj_paths.size(); i++)
@@ -81,9 +82,13 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
         objects[i].vertexShader = vertexShaders[i];
     for(int i=0; i<fragmentShaders.size() && i<obj_paths.size(); i++)
         objects[i].fragmentShader = fragmentShaders[i];
+    for(int i=0; i<pcolorTextures.size() && i<obj_paths.size(); i++)
+        objects[i].colorTexture = pcolorTextures[i];
+    for(int i=0; i<pnormalTextures.size() && i<obj_paths.size(); i++)
+        objects[i].normalTexture = pnormalTextures[i];
 
     return true;
-    }
+}
 
 
 Box get_boundingBox(const std::vector<Vertex>& vertexs, bool is_relax)

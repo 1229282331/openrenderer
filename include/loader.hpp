@@ -7,6 +7,7 @@
 #include "geometry.hpp"
 #include "Eigen/Core"
 #include "shader.hpp"
+#include "texture.hpp"
 
 
 namespace openrenderer{
@@ -39,8 +40,10 @@ struct Object{
     std::vector<Vertex> vertices;    
     std::vector<int> indices;
     Eigen::Matrix4f modelMat = Eigen::Matrix4f::Identity();
-    std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)> vertexShader = point_VertexShader;
+    std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShader = point_VertexShader;
     std::function<Eigen::Vector3f(const Point&)> fragmentShader = point_FragmentShader;
+    Texture* colorTexture = nullptr;
+    Texture* normalTexture = nullptr;
 };
 
 class Loader{
@@ -48,12 +51,13 @@ public:
     Loader() = default;
     ~Loader() = default;
     bool load_obj(const std::vector<std::string>& obj_paths, 
-                    std::vector<std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
+                    std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
                     std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
+                    std::vector<Texture*> pcolorTextures, std::vector<Texture*> pnormalTextures,
                     const std::vector<Eigen::Matrix4f>& modelMats=std::vector<Eigen::Matrix4f>());
 
     std::vector<Object> objects;
-    std::vector<std::function<Eigen::Vector3f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders;
+    std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders;
     std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders;
 
 private:

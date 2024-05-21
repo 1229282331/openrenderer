@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include "texture.hpp"
 
 #define MY_PI 3.1415926
 
@@ -12,6 +13,15 @@ namespace openrenderer{
 enum class PixelFormat{ RGB888=1, ARGB8888, GRAY8 };
 enum class ColorBit{ B=0, G, R, A };
 enum class BufferType{ COLOR=1, DEPTH };
+
+inline Eigen::Matrix4f scale(float rateX, float rateY, float rateZ)
+{
+    Eigen::Matrix4f Scale = Eigen::Matrix4f::Identity();
+    Scale(0, 0) *= rateX;
+    Scale(1, 1) *= rateY;
+    Scale(2, 2) *= rateZ;
+    return Scale;
+}
 
 inline Eigen::Matrix4f rotate(float angle, const Eigen::Vector3f& v)
 {
@@ -58,7 +68,7 @@ inline Eigen::Matrix4f lookAt(const Eigen::Vector3f& eyePos, const Eigen::Vector
 {
     Eigen::Vector3f const f((center - eyePos).normalized());
     Eigen::Vector3f const s((f.cross(up)).normalized());
-    Eigen::Vector3f const u((s.cross(f)).normalized());
+    Eigen::Vector3f const u((s.cross(f)));
 
     Eigen::Matrix4f Result = Eigen::Matrix4f::Identity();
     Result(0, 0) = s[0];
@@ -85,10 +95,10 @@ inline Eigen::Matrix4f perspective(float fovy, float aspect, float z_near, float
     Eigen::Matrix4f Result = Eigen::Matrix4f::Identity();
     Result(0, 0) = 1.f / (aspect * tanHalfFovy);
     Result(1, 1) = 1.f / (tanHalfFovy);
-    Result(2, 2) = z_far / (z_near - z_far);
-    Result(2, 3) = - 1.f;
-    Result(3, 2) = -(z_far * z_near) / (z_far - z_near);
-    return Result.transpose();
+    Result(2, 2) = (z_near + z_far) / -(z_far - z_near);
+    Result(3, 2) = - 1.f;
+    Result(2, 3) = -(2 * z_far * z_near) / (z_far - z_near);
+    return Result;
 }
 
 inline Eigen::Vector3f inverse2Dto3D(int x, int y, float z, int w, int h, const Eigen::Matrix4f& model, const Eigen::Matrix4f& view, const Eigen::Matrix4f& projection)
@@ -114,6 +124,10 @@ inline void RT_decompose(const Eigen::Matrix4f& RT, Eigen::Matrix4f& R, Eigen::M
     T.col(3) = RT.col(3);
 }
 
+struct Light{
+    Eigen::Vector3f pos;
+    Eigen::Vector3f intensity;
+};
 
 struct Uniform{
     std::vector<Eigen::Matrix4f> models;
@@ -121,7 +135,9 @@ struct Uniform{
     Eigen::Matrix4f projection;
     Eigen::Vector3f cameraPos;
     Eigen::Vector3f lightDir;
-    Eigen::Vector3f faceNormal;
+    std::vector<Light> lights;
+    int width;
+    int height;
 
     void set_models(std::vector<Eigen::Matrix4f> modelMats) { models = modelMats; }
     void set_model(int index, float alpha, const Eigen::Vector3f& axis, const Eigen::Vector3f& trans) 
@@ -152,14 +168,17 @@ struct Uniform{
         
         models[index] = T1 * T0 * R1 * R0;
     }
-    void init(std::vector<Eigen::Matrix4f> modelMats, const Eigen::Vector3f& cameraPos_, float aspect, 
-                const Eigen::Vector3f& lookat=Eigen::Vector3f::Zero(), const Eigen::Vector3f& up=Eigen::Vector3f(0.f, 1.f, 0.f), float fovy=45.f, float z_near=0.1f, float z_far=10.f, const Eigen::Vector3f& lightDir_={0.f, 0.f, 1.f})
+    void init(int width_, int height_, std::vector<Eigen::Matrix4f> modelMats, const Eigen::Vector3f& cameraPos_, float aspect, 
+                const Eigen::Vector3f& lookat=Eigen::Vector3f::Zero(), const Eigen::Vector3f& up=Eigen::Vector3f(0.f, 1.f, 0.f), float fovy=45.f, float z_near=0.1f, float z_far=10.f, const Eigen::Vector3f& lightDir_={0.f, 0.f, 1.f}, const std::vector<Light>& lights_=std::vector<Light>())
     {
+        width = width;
+        height = height_;
         cameraPos = cameraPos_;
         set_models(modelMats);
         set_view(cameraPos_, lookat, up);
         set_projection(fovy, aspect, z_near, z_far);
-        lightDir = lightDir_;
+        lightDir = lightDir_.normalized();
+        lights = lights_;
     }
 };
 
@@ -180,16 +199,23 @@ struct Vertex{
 struct vertex_shader_in{
     Vertex vertex;
     int obj_id;
+    Eigen::Vector3f tangent;
+    Texture* normalTexture = nullptr;
 };
 
 struct vertex_shader_out{
-    Eigen::Vector2i screenPos;
+    Eigen::Vector3f normal;
+    Eigen::Matrix3f TBN;
+    Eigen::Vector3f position;
 };
 
 struct Point{
     Eigen::Vector2i screen_pos;
     float z;
     Vertex v;
+    int obj_id;
+    Texture *colorTexture = nullptr;
+    Texture *normalTexture = nullptr;
     vertex_shader_out attrs;
 };
 
@@ -288,7 +314,7 @@ struct Framebuffers{
         default:
             break;
         }
-        std::fill(z_buffer, z_buffer+width*height, 1.f);
+        std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());
     }
     
 };

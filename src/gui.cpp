@@ -88,7 +88,7 @@ void Gui::titleFPS()
     dframe++;
     if ((dt = time1 - time0) >= 1000) 
     {
-        info.precision(1);  /*set 1bit precision*/
+        info.precision(0);  /*set 1bit precision*/
         info << "openrender" << "    " << std::fixed << dframe*1000 / float(dt) << " FPS";
         SDL_SetWindowTitle(window, info.str().c_str());
         info.str("");   //别忘了在设置完窗口标题后清空所用的stringstream
