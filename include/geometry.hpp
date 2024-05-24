@@ -266,8 +266,40 @@ struct Buffer{
         buffer = new uint8_t[size];
         memset(buffer, 0, size);
     }
+    Buffer(PixelFormat format_, int w, int h, uint8_t* data) : format(format_), width(w), height(h)
+    {
+        switch (format)
+        {
+            case PixelFormat::RGB888:
+                pbyte = 3;
+                break;
+            case PixelFormat::ARGB8888:
+                pbyte = 4;
+                break;
+            case PixelFormat::GRAY8:
+                pbyte = 3;
+            default:
+                pbyte = 3;
+                break;
+        }
+        size = width * height * pbyte;
+        buffer = new uint8_t[size];
+        memcpy(buffer, data, size);
+    }
     ~Buffer() { delete []buffer; }
     uint8_t& operator()(int i, int j, ColorBit bit) { return buffer[pbyte*(i*width+j)+int(bit)];  } 
+    Buffer& operator=(const Buffer& rhs)
+    {
+        delete []buffer;
+        width = rhs.width;
+        height = rhs.height;
+        size = rhs.size;
+        pbyte = rhs.pbyte;
+        format = rhs.format;
+        buffer = new uint8_t[size];
+        memcpy(buffer, rhs.buffer, sizeof(uint8_t)*size);
+        return *this;
+    }
     uint8_t  get(int i, int j, ColorBit bit) { return buffer[pbyte*(i*width+j)+int(bit)];  } 
     void     set(int i, int j, ColorBit bit, uint8_t value) { buffer[pbyte*(i*width+j)+int(bit)]=value; }
     void     clear() { memset(buffer, 0, size); }
@@ -316,7 +348,6 @@ struct Framebuffers{
         }
         std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());
     }
-    
 };
 
 

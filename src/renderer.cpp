@@ -71,7 +71,7 @@ void Render::drawFrame(const Loader& obj_loader)
         }
         else if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
         {
-            // #pragma omp parallel for num_threads(use_threads)
+            // #pragma omp parallel for if(obj.indices.size()/3>4)
             for(int i=0; i<obj.indices.size(); i+=3)
             {
                 int thread_id = omp_get_thread_num();

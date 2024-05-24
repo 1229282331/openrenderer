@@ -157,7 +157,6 @@ inline Eigen::Vector3f bumpMapping_FragmentShader(const Point& input)
         Eigen::Vector3f Ls = ks.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * pow(std::max(0.f, normal.dot(h)), p);
         color += (Ld + Ls);
     }
-
     return color;
 }
 

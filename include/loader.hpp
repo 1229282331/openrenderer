@@ -3,11 +3,13 @@
 #include <array>
 #include <vector>
 #include <string>
+#include <array>
 #include <unordered_map>
 #include "geometry.hpp"
 #include "Eigen/Core"
 #include "shader.hpp"
 #include "texture.hpp"
+#include "utils.hpp"
 
 
 namespace openrenderer{

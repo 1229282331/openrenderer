@@ -2,11 +2,16 @@
 
 #include <iostream>
 #include <functional>
+#include <cmath>
+#include <chrono>
 #include "geometry.hpp"
 #include "shader.hpp"
 #include "texture.hpp"
 
 extern openrenderer::Uniform ubo;
+
+extern double t0;
+extern double t1;
 
 namespace openrenderer{
 
@@ -62,10 +67,15 @@ private:
     void subRender(int begin, int end);
 };
 
+Eigen::Vector3f barycentric(const Point* vs, const Eigen::Vector2i& p);
+
+float correction(Eigen::Vector3f& bc, const Eigen::Vector4f* gl_Position);
 
 int line(const Point* input, Point* raster_region, int max_size, int width, int height);
 
 int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* raster_region, int max_size, ShadeFrequency freq, int width, int height);
+
+int thread_schedule(int thread_id, int i, int total_threads);
 
 Eigen::Vector3f calculate_tangent(const Vertex points[3]);
 

@@ -75,7 +75,16 @@ void Pipeline::run(int obj_id)
     /*1.vertex shader*/
     Eigen::Vector3f tangent = Eigen::Vector3f::Zero();
     if(m_primitiveType==PrimitiveType::TRIANGLE) 
+    {
+        if(m_vertexs[0].normal==Eigen::Vector3f::Zero() || m_vertexs[1].normal==Eigen::Vector3f::Zero() || m_vertexs[2].normal==Eigen::Vector3f::Zero())
+        {
+            Eigen::Vector3f faceNormal = (m_vertexs[1].pos-m_vertexs[0].pos).cross(m_vertexs[2].pos-m_vertexs[0].pos).normalized();
+            m_vertexs[0].normal = faceNormal;
+            m_vertexs[1].normal = faceNormal;
+            m_vertexs[2].normal = faceNormal;
+        }
         tangent = calculate_tangent(m_vertexs);
+    }
     for(int i=0; i<int(m_primitiveType); i++)
     {
         vertex_shader_out out_attr{Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()};
@@ -96,7 +105,8 @@ void Pipeline::run(int obj_id)
     /*3.rasterization*/
     rasterization();
     /*4.fragment shader*/
-    #pragma omp parallel for num_threads(6)
+    auto start = std::chrono::high_resolution_clock::now();
+    #pragma omp parallel for if(m_rasterSize>100)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].z, 
@@ -107,11 +117,13 @@ void Pipeline::run(int obj_id)
             Eigen::Vector3f color = fragment_shader(m_rasterPoints[i]);
             int x = m_rasterPoints[i].screen_pos.x();
             int y = m_rasterPoints[i].screen_pos.y();
-            (*m_framebuffers->color_buffer)(y, x, ColorBit::R) = static_cast<uint8_t>(std::clamp(color.x(), 0.f, 1.f)*255);
-            (*m_framebuffers->color_buffer)(y, x, ColorBit::G) = static_cast<uint8_t>(std::clamp(color.y(), 0.f, 1.f)*255);
-            (*m_framebuffers->color_buffer)(y, x, ColorBit::B) = static_cast<uint8_t>(std::clamp(color.z(), 0.f, 1.f)*255);
+            (*m_framebuffers->color_buffer)(y, x, ColorBit::R) = static_cast<uint8_t>(std::clamp(color.x(), 0.f, 1.f)*255.f);
+            (*m_framebuffers->color_buffer)(y, x, ColorBit::G) = static_cast<uint8_t>(std::clamp(color.y(), 0.f, 1.f)*255.f);
+            (*m_framebuffers->color_buffer)(y, x, ColorBit::B) = static_cast<uint8_t>(std::clamp(color.z(), 0.f, 1.f)*255.f);
         }
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
 }
 
     
@@ -234,6 +246,8 @@ bool Pipeline::test_depth(int x, int y, float z, int width, int height, float* z
 
 int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* raster_region, int max_size, ShadeFrequency freq, int width, int height)
 {
+    auto start = std::chrono::high_resolution_clock::now();
+
     Eigen::Vector2i box_min(4096, 2160); 
     Eigen::Vector2i box_max(0, 0);
     box_min.x() = std::clamp(std::min(input[0].screen_pos.x(), std::min(input[1].screen_pos.x(), input[2].screen_pos.x())), 0, width-1);
@@ -274,31 +288,82 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
     else if(freq==ShadeFrequency::GOURAUD)
     {
         for(int x=box_min.x(); x<=box_max.x(); x++)
-            for(int y=box_min.y(); y<=box_max.y(); y++)
-            {
-                Eigen::Vector3f bc = barycentric(input, Eigen::Vector2i(x, y));
-                if(bc.x()<0 || bc.y()<0 || bc.z()<0)
-                    continue;
-                float Z = correction(bc, gl_Position);
+           for(int y=box_min.y(); y<=box_max.y(); y++)
+           {
+               Eigen::Vector3f bc = barycentric(input, Eigen::Vector2i(x, y));
+               if(bc.x()>=0 && bc.y()>=0 && bc.z()>=0)
+               {
+                   float Z = correction(bc, gl_Position);
+                   raster_region[num].screen_pos = {x, y};
+                   raster_region[num].z = Z;
+                   raster_region[num].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal).normalized();
+                   raster_region[num].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
+                   raster_region[num].v.texCoord.x() = std::clamp(raster_region[num].v.texCoord.x(), 0.f, 1.f);
+                   raster_region[num].v.texCoord.y() = std::clamp(raster_region[num].v.texCoord.y(), 0.f, 1.f);
+                   raster_region[num].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal).normalized();
+                   raster_region[num].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
+                   raster_region[num].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
+                   num++;
+                   if(num > max_size) 
+                   {
+                       return num;
+                   }
+               }
+           }
 
-                raster_region[num].screen_pos = {x, y};
-                raster_region[num].z = Z;
-                raster_region[num].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal).normalized();
-                raster_region[num].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
-                raster_region[num].v.texCoord.x() = std::clamp(raster_region[num].v.texCoord.x(), 0.f, 1.f);
-                raster_region[num].v.texCoord.y() = std::clamp(raster_region[num].v.texCoord.y(), 0.f, 1.f);
-                raster_region[num].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal).normalized();
-                raster_region[num].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
-                raster_region[num].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
-                num++;
-                if(num > max_size) 
-                {
-                    return num;
-                }
-            }
+        // auto sub_triangle = [=](int x_begin, int x_end, int thread_id, int total_threads, int offset)
+        // {
+        //     int count=0;
+        //     for(int x=x_begin; x<=x_end; x++)
+        //     {
+        //         for(int y=box_min.y(); y<=box_max.y(); y++)
+        //         {
+        //             Eigen::Vector3f bc = barycentric(input, Eigen::Vector2i(x, y));
+        //             if(bc.x()>=0 && bc.y()>=0 && bc.z()>=0)
+        //             {
+        //                 int index = thread_schedule(thread_id, count, total_threads) + offset;
+        //                 // printf("%d\n", offset);
+        //                 float Z = correction(bc, gl_Position);
+        //                 raster_region[index].screen_pos = {x, y};
+        //                 raster_region[index].z = Z;
+        //                 raster_region[index].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal).normalized();
+        //                 raster_region[index].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
+        //                 raster_region[index].v.texCoord.x() = std::clamp(raster_region[index].v.texCoord.x(), 0.f, 1.f);
+        //                 raster_region[index].v.texCoord.y() = std::clamp(raster_region[index].v.texCoord.y(), 0.f, 1.f);
+        //                 raster_region[index].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal).normalized();
+        //                 raster_region[index].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
+        //                 raster_region[index].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
+        //                 count++;
+        //             }
+        //         }
+        //     }
+        //     return count;
+        // };
+
+        // int use_threads = std::clamp((box_max.x()-box_min.x()+1), 1, 16);
+        // use_threads = 8;
+        // int step_x = std::max((box_max.x()-box_min.x()+1) / use_threads, 1);
+        // int nums[16] = {0};
+        // // #pragma omp parallel for num_threads(use_threads)
+        // for(int i=0; i<use_threads; i++)
+        // {
+        //     int id = omp_get_thread_num();
+        //     int x_begin = box_min.x() + i*step_x;
+        //     nums[i] = sub_triangle(x_begin, x_begin+step_x-1, i, use_threads, 0);
+        // }
+        // num = std::accumulate(nums, nums+use_threads, 0);
+        // num += sub_triangle(box_min.x()+use_threads*step_x, box_max.x(), 0, 1, num);
+
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
 
     return num;
+}
+
+int thread_schedule(int thread_id, int i, int total_threads)
+{
+    return thread_id + i*total_threads;
 }
 
 Eigen::Vector3f calculate_tangent(const Vertex points[3])

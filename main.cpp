@@ -7,6 +7,7 @@
 #include <string>
 #include <ctime>
 #include <chrono>
+#include "omp.h"
 #include "SDL.h"
 #include "SDL_image.h"
 // #include "stb_image.h"
@@ -18,15 +19,18 @@
 #include "renderer.hpp"
 #include "shader.hpp"
 #include "texture.hpp"
+// #include "utils.hpp"
 
 const int w = 1440;
-const int h = 1080;
+const int h = 1024;
 openrenderer::Uniform ubo;
 
 #undef main     // remove the SDL defination for SDL_main: #define main SDL_main
 using namespace std;
 using namespace openrenderer;
 
+double t0 = 0.f;
+double t1 = 0.f;
 
 int main(int argc, char* argv[])
 {
@@ -35,19 +39,18 @@ int main(int argc, char* argv[])
     sycl::device device = q.get_device();
     std::cout << device.get_info<sycl::info::device::name>() << std::endl;
 #endif
-    // omp_set_num_threads(4);
-    // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-    std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/spot_triangulated_good.obj"};
+    omp_set_num_threads(6);
+    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
+    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
 
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
     std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
-    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), bumpMapping_FragmentShader);
-    Texture niucolorTexture("C:/vscode_files/openrenderer/texture/spot_texture.png");
-    Texture niunormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
-    // modelMats[1] = scale(0.2f, 0.2f, 0.2f);
-    // fragmentShaders[1] = point_FragmentShader;
-
+    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), phong_FragmentShader);
+    Texture niucolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
+    Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
+    modelMats[1] = scale(0.2f, 0.2f, 0.2f);
+    fragmentShaders[1] = point_FragmentShader;
 
     /*1. load the .obj*/
     openrenderer::Loader loader;
@@ -59,7 +62,7 @@ int main(int argc, char* argv[])
     Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
     render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     /*4.init scene*/
-    Eigen::Vector3f eyePos(0.f, 0.f, -1.f);
+    Eigen::Vector3f eyePos(2.f, 2.f, -2.f);
     std::vector<Light> lights = {
         {{0.f, 20.f, -20.f}, {500, 500, 500}},
         {{20.f, 20.f, 20.f}, {500, 500, 500}},
@@ -79,12 +82,17 @@ int main(int argc, char* argv[])
         Gui::self().titleFPS();
         
     }
-    
     // SDL_Delay(2000);
     Gui::self().save_image("../../../result.png", Gui::self().textures[0]);
 
     Gui::self().quit();
+    printf("triangle() cost %lfms/%.2f%% \n", t0, t0/(t0+t1)*100.f);
+    printf("fragShader() cost %lfms/%.2f%% \n", t1, t1/(t0+t1)*100.f);
     return 0;    
 }
 
-
+// int main()
+// {
+//     Texture niucolorTexture("C:/vscode_files/openrenderer/texture/african_head_diffuse.tga");
+//     std::cout << niucolorTexture.getColor(-0.5f, 0.5f);
+// }

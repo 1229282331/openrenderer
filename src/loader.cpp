@@ -4,6 +4,15 @@
 
 namespace openrenderer{
 
+struct ObjHashFunc
+{
+    template<typename T, typename U>
+    size_t operator() (const pair<T, U> &i) const
+    {
+        return hash<T>()(i.first) ^ hash<U>()(i.second);
+    }
+};
+
 bool Loader::load_obj(const std::vector<std::string>& obj_paths, 
                 std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
                 std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
@@ -26,7 +35,7 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
 
         Object obj;
         obj.id = i;
-        std::unordered_map<int,int> vertex_map;   // used to remove repeated vertex
+        std::unordered_map<std::pair<int, int>,int, ObjHashFunc> vertex_map;   // used to remove repeated vertex
 
         for(auto shape : shapes)    // loop all object meshes
         {
@@ -59,12 +68,13 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
                     vertex.normal = {0.f, 0.f, 0.f};
                 vertex.color = {1.f, 1.f, 1.f};
 
-                if(vertex_map.count(idx.vertex_index)==0)
+                std::pair<int, int>vandt_pair = {idx.vertex_index, idx.texcoord_index};
+                if(vertex_map.count(vandt_pair)==0)
                 {
-                    vertex_map[idx.vertex_index] = static_cast<uint32_t>(obj.vertices.size());
+                    vertex_map[vandt_pair] = static_cast<uint32_t>(obj.vertices.size());
                     obj.vertices.push_back(vertex);
                 }
-                obj.indices.push_back(vertex_map[idx.vertex_index]);
+                obj.indices.push_back(vertex_map[vandt_pair]);
             }
         }
         obj.bounding_box = get_boundingBox(obj.vertices, true);

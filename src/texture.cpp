@@ -6,7 +6,7 @@ namespace openrenderer{
 
 Texture::Texture(const std::string& name)
 {
-    data = stbi_load(name.c_str(), &width, &height, &n_channels, 0);    //[RGBRGB...RGB]
+    data = stbi_load(name.c_str(), &width, &height, &n_channels, 3);    //[RGBRGB...RGB]
     if(!data)
         printf("[error]: can't load the texture:%s\n", name.c_str());
 }
@@ -21,7 +21,9 @@ Eigen::Vector3f Texture::getColor(float u, float v) //RGB
 {
     int u_img = std::clamp(int(width * u), 0, width-1);
     int v_img = std::clamp(int(height * (1.f-v)), 0, height-1);
-    int pixelOffset = (v_img*width + u_img) * n_channels;
+    // int u_img = int(width * u);
+    // int v_img = int(height * (1.f-v));
+    int pixelOffset = (width*v_img + u_img) * 3;
     return { data[pixelOffset]/255.f, data[pixelOffset+1]/255.f, data[pixelOffset+2]/255.f };
 }
 

@@ -14,7 +14,7 @@ public:
 
     Eigen::Vector3f getColor(float u, float v);
 
-private:
+public:
     uint8_t* data;
     int width;
     int height;
