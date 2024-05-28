@@ -110,6 +110,7 @@
         "coroutine": "cpp",
         "*.inc": "cpp",
         "shared_mutex": "cpp",
-        "xstddef": "cpp"
+        "xstddef": "cpp",
+        "*.main": "cpp"
     },
 }

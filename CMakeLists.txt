@@ -18,6 +18,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")  # 对于C语言
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>") # 对于C++语言
+add_definitions("-D_HAS_STD_BYTE=0")
 
 # add_definitions("-DNDEBUG")
 
@@ -35,6 +36,7 @@ message(${CMAKE_SOURCE_DIR})
 
 
 set(EIGEN_INCLUDE ${THIRD_PARTY_DIR}/eigen)
+set(TBB_INCLUDE ${THIRD_PARTY_DIR}/oneTBB/include)
 set(SDL2_INCLUDE ${THIRD_PARTY_DIR}/SDL2/include)
 set(SDL2image_INCLUDE ${THIRD_PARTY_DIR}/SDL2_image/include)
 if(UNIX)
@@ -54,6 +56,7 @@ else()
   set(SDL2image_LIB 
     ${THIRD_PARTY_DIR}/SDL2_image/lib/SDL2_imaged.lib
   )
+  file(GLOB_RECURSE TBB_LIB ${THIRD_PARTY_DIR}/oneTBB/lib/*.lib)
 endif()
 
 set(TARGET_NAME ${CMAKE_PROJECT_NAME})
@@ -91,11 +94,14 @@ else()
   endif()
 endif()
 
+target_link_libraries(${TARGET_NAME} PUBLIC ${TBB_LIB})
+# target_link_directories(${TARGET_NAME} PUBLIC ${THIRD_PARTY_DIR}/oneTBB/lib)
 target_link_libraries(${TARGET_NAME} PUBLIC ${SDL2_LIB})
 target_link_libraries(${TARGET_NAME} PUBLIC ${SDL2image_LIB})
 target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${THIRD_PARTY_DIR}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${EIGEN_INCLUDE}>)
+target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${TBB_INCLUDE}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${SDL2_INCLUDE}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${SDL2image_INCLUDE}>)
 
