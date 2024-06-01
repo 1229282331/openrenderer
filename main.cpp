@@ -19,16 +19,15 @@
 #include "renderer.hpp"
 #include "shader.hpp"
 #include "texture.hpp"
-#include "tbb/tbb.h"
+// #include "tbb/tbb.h"
 
-const int w = 1440;
-const int h = 1024;
+const int w = 800;
+const int h = 800;
 openrenderer::Uniform ubo;
 
 #undef main     // remove the SDL defination for SDL_main: #define main SDL_main
 using namespace std;
 using namespace openrenderer;
-using namespace tbb;
 
 double t0 = 0.f;
 double t1 = 0.f;
@@ -45,7 +44,7 @@ int main(int argc, char* argv[])
 #endif
     // omp_set_num_threads(6);
     omp_set_nested(1);
-    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer_multi/obj/Marry.obj", "C:/vscode_files/openrenderer_multi/obj/floor.obj"};
+    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
     // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
 
 
@@ -65,7 +64,7 @@ int main(int argc, char* argv[])
     Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
     /*3. init renderer*/
     Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
-    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::FLAT, point_VertexShader, texture_FragmentShader);
+    render.init_pipeline(PrimitiveType::LINE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     /*4.init scene*/
     Eigen::Vector3f eyePos(2.f, 2.f, -2.f);
     std::vector<Light> lights = {
@@ -108,25 +107,10 @@ int main(int argc, char* argv[])
 
 // int main()
 // {
-//     Point inputs[3];
-//     inputs[0].screen_pos = { 100, 100 };
-//     inputs[1].screen_pos = { 103, 120 };
-//     inputs[2].screen_pos = { 200, 300 };
-//     Eigen::Vector4f gl_Position[3];
-//     Point *raster_region = new Point[w*h];
-//     int size;
-//     Eigen::Vector3f res;
-//     auto start = std::chrono::high_resolution_clock::now();
-//     // #pragma omp parallel for num_threads(16)
-//     for(long i=0; i<100; i++)
-//         size = triangle(inputs, gl_Position, raster_region, 2*w*h, ShadeFrequency::GOURAUD, w, h, Region{ {0,0}, {w, h} });
-//         // res = barycentric(inputs, { 120, 120 });
-//     auto end = std::chrono::high_resolution_clock::now();
-//     t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
-//     printf("triangle() cost %lfms \n", t0);
-//     printf("barycentric() cost %lfms/%.2f%% \n", t1, t1/(t0)*100.f);
-//     printf("set-value() cost %lfms/%.2f%% \n", t2, t2/(t0)*100.f);
-//     // std::cout << size << '\n';
+//     Eigen::Vector2i vs[2];
+//     vs[0] = { 100, 100 };
+//     vs[1] = { 120, 120 };    
+//     std::cout << line_barycentric(vs, {-102, -102}) << std::endl;
   
 // }
   

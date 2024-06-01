@@ -52,7 +52,7 @@ void Render::drawFrame(const Loader& obj_loader)
         start = std::chrono::high_resolution_clock::now();
         for(int i=0; i<num_threads; i++)
         {
-            m_pipeline[i]->set_state(obj.vertexShader, obj.fragmentShader, obj.colorTexture, obj.normalTexture, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::FLAT);
+            m_pipeline[i]->set_state(obj.vertexShader, obj.fragmentShader, obj.colorTexture, obj.normalTexture, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::LINE, ShadeFrequency::GOURAUD);
         }
         end = std::chrono::high_resolution_clock::now();
         t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;

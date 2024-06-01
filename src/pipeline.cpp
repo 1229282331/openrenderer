@@ -205,6 +205,7 @@ int line(const Point* input, Point* raster_region, int max_size, int width, int 
     int y = y0;
     const int step = y0<y1 ? 1 : -1; 
     int num = 0;
+    Eigen::Vector2f bc;
     for(int x=x0; x<=x1 && num<max_size; x++)
     {
         if(is_steep)
@@ -223,8 +224,13 @@ int line(const Point* input, Point* raster_region, int max_size, int width, int 
     }
     return num;
 }
+Eigen::Vector2f barycentric_line(const Eigen::Vector2i& v0, const Eigen::Vector2i& v1, const Eigen::Vector2i& p)
+{
+    float k = (p.x()-v0.x()) / float(v1.x()-v0.x());
+    return { 1.f-k, k };
+}
 
-Eigen::Vector3f barycentric(const Point* vs, const Eigen::Vector2i& p) 
+Eigen::Vector3f barycentric(const Point *vs, const Eigen::Vector2i& p) 
 { 
     // float c1 = (p.x()*(vs[1].screen_pos.y() - vs[2].screen_pos.y()) + (vs[2].screen_pos.x() - vs[1].screen_pos.x())*p.y() + vs[1].screen_pos.x()*vs[2].screen_pos.y() - vs[2].screen_pos.x()*vs[1].screen_pos.y()) / (vs[0].screen_pos.x()*(vs[1].screen_pos.y() - vs[2].screen_pos.y()) + (vs[2].screen_pos.x() - vs[1].screen_pos.x())*vs[0].screen_pos.y() + vs[1].screen_pos.x()*vs[2].screen_pos.y() - vs[2].screen_pos.x()*vs[1].screen_pos.y());
     // float c2 = (p.x()*(vs[2].screen_pos.y() - vs[0].screen_pos.y()) + (vs[0].screen_pos.x() - vs[2].screen_pos.x())*p.y() + vs[2].screen_pos.x()*vs[0].screen_pos.y() - vs[0].screen_pos.x()*vs[2].screen_pos.y()) / (vs[1].screen_pos.x()*(vs[2].screen_pos.y() - vs[0].screen_pos.y()) + (vs[0].screen_pos.x() - vs[2].screen_pos.x())*vs[1].screen_pos.y() + vs[2].screen_pos.x()*vs[0].screen_pos.y() - vs[0].screen_pos.x()*vs[2].screen_pos.y());
@@ -274,7 +280,7 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
 
     if(freq==ShadeFrequency::FLAT)
     {
-        float faceZ = 0.333f*(input[0].z+input[1].z+input[2].z);
+        // float faceZ = 0.333f*(input[0].z+input[1].z+input[2].z);
         Eigen::Vector3f faceNormal = (input[1].v.pos-input[0].v.pos).cross(input[2].v.pos-input[0].v.pos);
         Eigen::Vector3f afterFaceNormal = (input[0].attrs.normal+input[1].attrs.normal+input[2].attrs.normal);
         Eigen::Vector2f faceTexCoord = 0.333f*(input[0].v.texCoord+input[1].v.texCoord+input[2].v.texCoord);
@@ -288,13 +294,13 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
                     continue;
                 float Z = correction(bc, gl_Position);
                 raster_region[num].screen_pos = {x, y};
-                raster_region[num].z = faceZ;
+                raster_region[num].z = Z;
                 raster_region[num].v.normal = faceNormal;
                 raster_region[num].v.texCoord = faceTexCoord;
                 raster_region[num].attrs.normal = afterFaceNormal;
                 raster_region[num].attrs.TBN = faceTBN;
                 raster_region[num].attrs.position = facePosition;
-                num++;
+                num++; 
                 if(num > max_size) 
                 {
                     return num;
