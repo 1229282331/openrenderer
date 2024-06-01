@@ -7,6 +7,11 @@
 #include "pipeline.hpp"
 #include "shader.hpp"
 
+extern double t0;
+extern double t1;
+extern double t2;
+extern double t3;
+
 namespace openrenderer{
 
 class Render{
@@ -26,10 +31,12 @@ public:
 private:
     int m_width;
     int m_height;
-    static const int num_threads = 1;
+    static const int num_threads = 4;
 
     std::unique_ptr<Framebuffers> m_framebuffers;
     std::unique_ptr<Pipeline> m_pipeline[num_threads];
+
+    void linkSubFramebuffers();
 
 };
 

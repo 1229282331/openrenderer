@@ -325,13 +325,28 @@ struct Framebuffers{
             memset(depth_buffer->buffer, 255, depth_buffer->size);
         }
         z_buffer = new float[width*height];
-        std::fill(z_buffer, z_buffer+width*height, 1.f);
+        std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());
     }
     ~Framebuffers()
     {
         delete []z_buffer;
         color_buffer.reset();
         depth_buffer.reset();
+    }
+    Framebuffers(const Framebuffers& rhs)
+    {
+        width = rhs.width;
+        height = rhs.height;
+        if(color_buffer.get())
+            color_buffer.reset();
+        color_buffer = std::make_unique<Buffer>(*rhs.color_buffer);
+        if(depth_buffer.get())
+            depth_buffer.reset();
+        depth_buffer = std::make_unique<Buffer>(*rhs.depth_buffer);
+        if(z_buffer)
+            delete []z_buffer;
+        z_buffer = new float[width*height];
+        std::memcpy(z_buffer, rhs.z_buffer, width*height*sizeof(float));
     }
     void clear(BufferType type)
     {

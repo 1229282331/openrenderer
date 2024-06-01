@@ -12,17 +12,60 @@ extern openrenderer::Uniform ubo;
 
 extern double t0;
 extern double t1;
+extern double t2;
+extern double t3;
+extern double t4;
 
 namespace openrenderer{
+
+struct Region{
+    Eigen::Vector2i min;
+    Eigen::Vector2i max;
+    Region()
+    {
+        min = Eigen::Vector2i{ std::numeric_limits<int>::max(), std::numeric_limits<int>::max() };
+        max = Eigen::Vector2i{ std::numeric_limits<int>::min(), std::numeric_limits<int>::min() };
+    }
+    Region(const Eigen::Vector2i& min_, const Eigen::Vector2i& max_)
+    {
+        min = min_;
+        max = max_;
+    }
+    Region(const Region& rhs)
+    {
+        min = rhs.min;
+        max = rhs.max;
+    }
+    void reset()
+    {
+        min = Eigen::Vector2i{ std::numeric_limits<int>::max(), std::numeric_limits<int>::max() };
+        max = Eigen::Vector2i{ std::numeric_limits<int>::min(), std::numeric_limits<int>::min() };
+    }
+    Region Union(const Region& rhs)
+    {
+        Region ret;
+        ret.min = { std::min(min.x(), rhs.min.x()), std::min(min.y(), rhs.min.y()) };
+        ret.max = { std::max(max.x(), rhs.max.x()), std::max(max.y(), rhs.max.y()) };
+        return ret;
+    }
+    Region& operator=(const Region& rhs)
+    {
+        min = rhs.min;
+        max = rhs.max;
+        return *this;
+    }
+};
 
 enum class PrimitiveType{ POINT=1, LINE, TRIANGLE };
 enum class ShadeFrequency{ FLAT, GOURAUD };
 
 class Pipeline{
 public:
-    Pipeline(PrimitiveType primitive, ShadeFrequency freq, std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc, Framebuffers* framebuffers) 
-        : m_primitiveType(primitive), m_shadeFrequency(freq), m_vertexShaderFunc(vertexShaderFunc), m_fragmentShaderFunc(fragmentShaderFunc), m_framebuffers(framebuffers), m_colorTexture(nullptr)
+    Pipeline(PrimitiveType primitive, ShadeFrequency freq, std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc, const Framebuffers& framebuffers) 
+        : m_primitiveType(primitive), m_shadeFrequency(freq), m_vertexShaderFunc(vertexShaderFunc), m_fragmentShaderFunc(fragmentShaderFunc), m_colorTexture(nullptr), m_renderRegion(Region())
     { 
+
+        m_framebuffers = std::make_unique<Framebuffers>(framebuffers);
         clear(); 
     }
     ~Pipeline();
@@ -33,18 +76,21 @@ public:
     void set_state(std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, std::function<Eigen::Vector3f(const Point&)> fragmentShader, Texture* colorTexture, Texture* normalTexture=nullptr, int max_rasterSize=3000, PrimitiveType primitive=PrimitiveType::TRIANGLE, ShadeFrequency freq=ShadeFrequency::FLAT);
     void run(int obj_id);
 
+    Region        renderRegion() { return m_renderRegion; }
     PrimitiveType primitiveType() { return m_primitiveType; }
+    Framebuffers* framebuffers() { return m_framebuffers.get(); }
 
 
 
 private:
     Eigen::Vector4f                                                        gl_Position[3];
 
+    Region                                                                 m_renderRegion;
     PrimitiveType                                                          m_primitiveType;
     ShadeFrequency                                                         m_shadeFrequency;
     Texture*                                                               m_colorTexture;
     Texture*                                                               m_normalTexture;
-    Framebuffers*                                                          m_framebuffers;
+    std::unique_ptr<Framebuffers>                                          m_framebuffers;
     Vertex                                                                 m_vertexs[3];
     vertex_shader_out                                                      m_attrs[3];
     int                                                                    m_indices[3];
@@ -62,18 +108,17 @@ private:
     void rasterization();
     Eigen::Vector3f fragment_shader(const Point& point_input);
 
-    bool test_depth(int x, int y, float z, int width, int height, float* z_buffer);
-
-    void subRender(int begin, int end);
 };
 
 Eigen::Vector3f barycentric(const Point* vs, const Eigen::Vector2i& p);
 
+bool test_depth(int x, int y, float z, int width, int height, float* z_buffer);
+
 float correction(Eigen::Vector3f& bc, const Eigen::Vector4f* gl_Position);
 
-int line(const Point* input, Point* raster_region, int max_size, int width, int height);
+int line(const Point* input, Point* raster_region, int max_size, int width, int height, Region& renderRegion);
 
-int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* raster_region, int max_size, ShadeFrequency freq, int width, int height);
+int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* raster_region, int max_size, ShadeFrequency freq, int width, int height, Region& renderRegion);
 
 int thread_schedule(int thread_id, int i, int total_threads);
 

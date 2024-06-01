@@ -5,7 +5,7 @@ namespace openrenderer{
 
 Pipeline::~Pipeline()
 {
-    m_framebuffers = nullptr;
+    m_framebuffers.reset();
     clear();
 }
 
@@ -52,6 +52,7 @@ void Pipeline::set_state(std::function<Eigen::Vector4f(const vertex_shader_in&, 
                             Texture* colorTexture, Texture* normalTexture,
                             int max_rasterSize, PrimitiveType primitive, ShadeFrequency freq)
 {
+    m_renderRegion.reset();
     m_vertexShaderFunc = vertexShader;
     m_fragmentShaderFunc = fragmentShader;
     m_primitiveType = primitive;
@@ -105,8 +106,7 @@ void Pipeline::run(int obj_id)
     /*3.rasterization*/
     rasterization();
     /*4.fragment shader*/
-    auto start = std::chrono::high_resolution_clock::now();
-    #pragma omp parallel for if(m_rasterSize>100)
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].z, 
@@ -122,8 +122,6 @@ void Pipeline::run(int obj_id)
             (*m_framebuffers->color_buffer)(y, x, ColorBit::B) = static_cast<uint8_t>(std::clamp(color.z(), 0.f, 1.f)*255.f);
         }
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
 }
 
     
@@ -145,6 +143,7 @@ void Pipeline::primitive_assembly()
 
 void Pipeline::rasterization()
 {
+    auto start = std::chrono::high_resolution_clock::now();
     if(m_primitiveType==PrimitiveType::POINT)
     {
         if(m_primitive[0].screen_pos.x()<0||m_primitive[0].screen_pos.x()>m_framebuffers->width-1 || m_primitive[0].screen_pos.y()<0||m_primitive[0].screen_pos.y()>m_framebuffers->height-1)
@@ -153,12 +152,22 @@ void Pipeline::rasterization()
         {
             m_rasterSize = 1;
             m_rasterPoints[0] = m_primitive[0];
+
+            Eigen::Vector2i box_min(4096, 2160); 
+            Eigen::Vector2i box_max(0, 0);
+            box_min.x() = std::clamp(m_rasterPoints[0].screen_pos.x()-1, 0, m_framebuffers->width-1);
+            box_min.y() = std::clamp(m_rasterPoints[0].screen_pos.y()-1, 0, m_framebuffers->height-1);
+            box_max.x() = std::clamp(m_rasterPoints[0].screen_pos.x()+1, 0, m_framebuffers->width-1);
+            box_max.y() = std::clamp(m_rasterPoints[0].screen_pos.y()+1, 0, m_framebuffers->height-1);
+            m_renderRegion = m_renderRegion.Union(Region{ box_min, box_max });
         }
     }
     else if(m_primitiveType==PrimitiveType::LINE)
-        m_rasterSize = line(m_primitive, m_rasterPoints, m_maxRasterSize, m_framebuffers->width, m_framebuffers->height);
+        m_rasterSize = line(m_primitive, m_rasterPoints, m_maxRasterSize, m_framebuffers->width, m_framebuffers->height, m_renderRegion);
     else if(m_primitiveType==PrimitiveType::TRIANGLE)
-        m_rasterSize = triangle(m_primitive, gl_Position, m_rasterPoints, m_maxRasterSize, m_shadeFrequency, m_framebuffers->width, m_framebuffers->height);
+        m_rasterSize = triangle(m_primitive, gl_Position, m_rasterPoints, m_maxRasterSize, m_shadeFrequency, m_framebuffers->width, m_framebuffers->height, m_renderRegion);
+    auto end = std::chrono::high_resolution_clock::now();
+    t4 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
 }
 
 Eigen::Vector3f Pipeline::fragment_shader(const Point& point_input)
@@ -167,8 +176,15 @@ Eigen::Vector3f Pipeline::fragment_shader(const Point& point_input)
 }
 
 
-int line(const Point* input, Point* raster_region, int max_size, int width, int height)
+int line(const Point* input, Point* raster_region, int max_size, int width, int height, Region& renderRegion)
 {
+    Eigen::Vector2i box_min(4096, 2160); 
+    Eigen::Vector2i box_max(0, 0);
+    box_min.x() = std::clamp(std::min(input[0].screen_pos.x(), input[1].screen_pos.x()), 0, width-1);
+    box_min.y() = std::clamp(std::min(input[0].screen_pos.y(), input[1].screen_pos.y()), 0, height-1);
+    box_max.x() = std::clamp(std::max(input[0].screen_pos.x(), input[1].screen_pos.x()), 0, width-1);
+    box_max.y() = std::clamp(std::max(input[0].screen_pos.y(), input[1].screen_pos.y()), 0, height-1);
+    renderRegion = renderRegion.Union(Region{ box_min, box_max });
     bool is_steep = false;
     int x0 = input[0].screen_pos.x(), y0 = input[0].screen_pos.y();
     int x1 = input[1].screen_pos.x(), y1 = input[1].screen_pos.y();
@@ -210,10 +226,11 @@ int line(const Point* input, Point* raster_region, int max_size, int width, int 
 
 Eigen::Vector3f barycentric(const Point* vs, const Eigen::Vector2i& p) 
 { 
-    // float c1 = (p.x()*(vs[1].y() - vs[2].y()) + (vs[2].x() - vs[1].x())*p.y() + vs[1].x()*vs[2].y() - vs[2].x()*vs[1].y()) / (vs[0].x()*(vs[1].y() - vs[2].y()) + (vs[2].x() - vs[1].x())*vs[0].y() + vs[1].x()*vs[2].y() - vs[2].x()*vs[1].y());
-    // float c2 = (p.x()*(vs[2].y() - vs[0].y()) + (vs[0].x() - vs[2].x())*p.y() + vs[2].x()*vs[0].y() - vs[0].x()*vs[2].y()) / (vs[1].x()*(vs[2].y() - vs[0].y()) + (vs[0].x() - vs[2].x())*vs[1].y() + vs[2].x()*vs[0].y() - vs[0].x()*vs[2].y());
-    // float c3 = (p.x()*(vs[0].y() - vs[1].y()) + (vs[1].x() - vs[0].x())*p.y() + vs[0].x()*vs[1].y() - vs[1].x()*vs[0].y()) / (vs[2].x()*(vs[0].y() - vs[1].y()) + (vs[1].x() - vs[0].x())*vs[2].y() + vs[0].x()*vs[1].y() - vs[1].x()*vs[0].y());
+    // float c1 = (p.x()*(vs[1].screen_pos.y() - vs[2].screen_pos.y()) + (vs[2].screen_pos.x() - vs[1].screen_pos.x())*p.y() + vs[1].screen_pos.x()*vs[2].screen_pos.y() - vs[2].screen_pos.x()*vs[1].screen_pos.y()) / (vs[0].screen_pos.x()*(vs[1].screen_pos.y() - vs[2].screen_pos.y()) + (vs[2].screen_pos.x() - vs[1].screen_pos.x())*vs[0].screen_pos.y() + vs[1].screen_pos.x()*vs[2].screen_pos.y() - vs[2].screen_pos.x()*vs[1].screen_pos.y());
+    // float c2 = (p.x()*(vs[2].screen_pos.y() - vs[0].screen_pos.y()) + (vs[0].screen_pos.x() - vs[2].screen_pos.x())*p.y() + vs[2].screen_pos.x()*vs[0].screen_pos.y() - vs[0].screen_pos.x()*vs[2].screen_pos.y()) / (vs[1].screen_pos.x()*(vs[2].screen_pos.y() - vs[0].screen_pos.y()) + (vs[0].screen_pos.x() - vs[2].screen_pos.x())*vs[1].screen_pos.y() + vs[2].screen_pos.x()*vs[0].screen_pos.y() - vs[0].screen_pos.x()*vs[2].screen_pos.y());
+    // float c3 = (p.x()*(vs[0].screen_pos.y() - vs[1].screen_pos.y()) + (vs[1].screen_pos.x() - vs[0].screen_pos.x())*p.y() + vs[0].screen_pos.x()*vs[1].screen_pos.y() - vs[1].screen_pos.x()*vs[0].screen_pos.y()) / (vs[2].screen_pos.x()*(vs[0].screen_pos.y() - vs[1].screen_pos.y()) + (vs[1].screen_pos.x() - vs[0].screen_pos.x())*vs[2].screen_pos.y() + vs[0].screen_pos.x()*vs[1].screen_pos.y() - vs[1].screen_pos.x()*vs[0].screen_pos.y());
     // return Eigen::Vector3f(c1, c2, c3);
+
     Eigen::Vector3i u = Eigen::Vector3i(vs[2].screen_pos.x()-vs[0].screen_pos.x(), vs[1].screen_pos.x()-vs[0].screen_pos.x(), vs[0].screen_pos.x()-p.x()).cross(Eigen::Vector3i(vs[2].screen_pos.y()-vs[0].screen_pos.y(), vs[1].screen_pos.y()-vs[0].screen_pos.y(), vs[0].screen_pos.y()-p.y()));
     if (std::abs(u.z())<1) return Eigen::Vector3f(-1.f,1.f,1.f);
     return Eigen::Vector3f(1.f-(u.x()+u.y())/float(u.z()), u.y()/float(u.z()), u.x()/float(u.z())); 
@@ -232,7 +249,7 @@ float correction(Eigen::Vector3f& bc, const Eigen::Vector4f* gl_Position)
     return Z;
 }
 
-bool Pipeline::test_depth(int x, int y, float z, int width, int height, float* z_buffer)
+bool test_depth(int x, int y, float z, int width, int height, float* z_buffer)
 {
     int index = y * width + x;
     bool is_shade = false;
@@ -244,23 +261,22 @@ bool Pipeline::test_depth(int x, int y, float z, int width, int height, float* z
     return is_shade;
 }
 
-int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* raster_region, int max_size, ShadeFrequency freq, int width, int height)
+int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* raster_region, int max_size, ShadeFrequency freq, int width, int height, Region& renderRegion)
 {
-    auto start = std::chrono::high_resolution_clock::now();
-
     Eigen::Vector2i box_min(4096, 2160); 
     Eigen::Vector2i box_max(0, 0);
     box_min.x() = std::clamp(std::min(input[0].screen_pos.x(), std::min(input[1].screen_pos.x(), input[2].screen_pos.x())), 0, width-1);
     box_min.y() = std::clamp(std::min(input[0].screen_pos.y(), std::min(input[1].screen_pos.y(), input[2].screen_pos.y())), 0, height-1);
     box_max.x() = std::clamp(std::max(input[0].screen_pos.x(), std::max(input[1].screen_pos.x(), input[2].screen_pos.x())), 0, width-1);
     box_max.y() = std::clamp(std::max(input[0].screen_pos.y(), std::max(input[1].screen_pos.y(), input[2].screen_pos.y())), 0, height-1);
+    renderRegion = renderRegion.Union(Region{ box_min, box_max });
     int num = 0;
 
     if(freq==ShadeFrequency::FLAT)
     {
         float faceZ = 0.333f*(input[0].z+input[1].z+input[2].z);
-        Eigen::Vector3f faceNormal = (input[1].v.pos-input[0].v.pos).cross(input[2].v.pos-input[0].v.pos).normalized();
-        Eigen::Vector3f afterFaceNormal = (input[0].attrs.normal+input[1].attrs.normal+input[2].attrs.normal).normalized();
+        Eigen::Vector3f faceNormal = (input[1].v.pos-input[0].v.pos).cross(input[2].v.pos-input[0].v.pos);
+        Eigen::Vector3f afterFaceNormal = (input[0].attrs.normal+input[1].attrs.normal+input[2].attrs.normal);
         Eigen::Vector2f faceTexCoord = 0.333f*(input[0].v.texCoord+input[1].v.texCoord+input[2].v.texCoord);
         Eigen::Matrix3f faceTBN = 0.333f*(input[0].attrs.TBN+input[1].attrs.TBN+input[2].attrs.TBN);
         Eigen::Vector3f facePosition = 0.333f*(input[0].attrs.position+input[1].attrs.position+input[2].attrs.position);
@@ -290,74 +306,27 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
         for(int x=box_min.x(); x<=box_max.x(); x++)
            for(int y=box_min.y(); y<=box_max.y(); y++)
            {
-               Eigen::Vector3f bc = barycentric(input, Eigen::Vector2i(x, y));
-               if(bc.x()>=0 && bc.y()>=0 && bc.z()>=0)
-               {
-                   float Z = correction(bc, gl_Position);
-                   raster_region[num].screen_pos = {x, y};
-                   raster_region[num].z = Z;
-                   raster_region[num].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal).normalized();
-                   raster_region[num].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
-                   raster_region[num].v.texCoord.x() = std::clamp(raster_region[num].v.texCoord.x(), 0.f, 1.f);
-                   raster_region[num].v.texCoord.y() = std::clamp(raster_region[num].v.texCoord.y(), 0.f, 1.f);
-                   raster_region[num].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal).normalized();
-                   raster_region[num].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
-                   raster_region[num].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
-                   num++;
-                   if(num > max_size) 
-                   {
-                       return num;
-                   }
-               }
+                Eigen::Vector3f bc = barycentric(input, Eigen::Vector2i(x, y));
+                if(bc.x()<0.f || bc.y()<0.f || bc.z()<0.f)
+                    continue;
+
+                float Z = correction(bc, gl_Position);
+                raster_region[num].screen_pos = {x, y};
+                raster_region[num].z = Z;
+                raster_region[num].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal);
+                raster_region[num].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
+                raster_region[num].v.texCoord.x() = std::clamp(raster_region[num].v.texCoord.x(), 0.f, 1.f);
+                raster_region[num].v.texCoord.y() = std::clamp(raster_region[num].v.texCoord.y(), 0.f, 1.f);
+                raster_region[num].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal);
+                raster_region[num].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
+                raster_region[num].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
+                num++;
+                if(num > max_size) 
+                {
+                    return num;
+                }
            }
-
-        // auto sub_triangle = [=](int x_begin, int x_end, int thread_id, int total_threads, int offset)
-        // {
-        //     int count=0;
-        //     for(int x=x_begin; x<=x_end; x++)
-        //     {
-        //         for(int y=box_min.y(); y<=box_max.y(); y++)
-        //         {
-        //             Eigen::Vector3f bc = barycentric(input, Eigen::Vector2i(x, y));
-        //             if(bc.x()>=0 && bc.y()>=0 && bc.z()>=0)
-        //             {
-        //                 int index = thread_schedule(thread_id, count, total_threads) + offset;
-        //                 // printf("%d\n", offset);
-        //                 float Z = correction(bc, gl_Position);
-        //                 raster_region[index].screen_pos = {x, y};
-        //                 raster_region[index].z = Z;
-        //                 raster_region[index].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal).normalized();
-        //                 raster_region[index].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
-        //                 raster_region[index].v.texCoord.x() = std::clamp(raster_region[index].v.texCoord.x(), 0.f, 1.f);
-        //                 raster_region[index].v.texCoord.y() = std::clamp(raster_region[index].v.texCoord.y(), 0.f, 1.f);
-        //                 raster_region[index].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal).normalized();
-        //                 raster_region[index].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
-        //                 raster_region[index].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
-        //                 count++;
-        //             }
-        //         }
-        //     }
-        //     return count;
-        // };
-
-        // int use_threads = std::clamp((box_max.x()-box_min.x()+1), 1, 16);
-        // use_threads = 8;
-        // int step_x = std::max((box_max.x()-box_min.x()+1) / use_threads, 1);
-        // int nums[16] = {0};
-        // // #pragma omp parallel for num_threads(use_threads)
-        // for(int i=0; i<use_threads; i++)
-        // {
-        //     int id = omp_get_thread_num();
-        //     int x_begin = box_min.x() + i*step_x;
-        //     nums[i] = sub_triangle(x_begin, x_begin+step_x-1, i, use_threads, 0);
-        // }
-        // num = std::accumulate(nums, nums+use_threads, 0);
-        // num += sub_triangle(box_min.x()+use_threads*step_x, box_max.x(), 0, 1, num);
-
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
-
     return num;
 }
 

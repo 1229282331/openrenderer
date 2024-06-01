@@ -32,78 +32,101 @@ using namespace tbb;
 
 double t0 = 0.f;
 double t1 = 0.f;
+double t2 = 0.f;
+double t3 = 0.f;
+double t4 = 0.f;
 
-// int main(int argc, char* argv[])
-// {
-// #ifdef USE_SYCL
-//     sycl::queue q;
-//     sycl::device device = q.get_device();
-//     std::cout << device.get_info<sycl::info::device::name>() << std::endl;
-// #endif
-//     omp_set_num_threads(6);
-//     const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-//     // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
-
-
-//     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
-//     std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
-//     std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), phong_FragmentShader);
-//     Texture niucolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
-//     Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
-//     modelMats[1] = scale(0.2f, 0.2f, 0.2f);
-//     fragmentShaders[1] = point_FragmentShader;
-
-//     /*1. load the .obj*/
-//     openrenderer::Loader loader;
-//     loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&niucolorTexture}, {&niunormalTexture}, modelMats);
-//     /*2. init SDL*/
-//     Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
-//     Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
-//     /*3. init renderer*/
-//     Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
-//     render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
-//     /*4.init scene*/
-//     Eigen::Vector3f eyePos(2.f, 2.f, -2.f);
-//     std::vector<Light> lights = {
-//         {{0.f, 20.f, -20.f}, {500, 500, 500}},
-//         // {{20.f, 20.f, 20.f}, {500, 500, 500}},
-//     };
-//     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
-
-//     //main loop
-//     SDL_Event event;
-//     ControlResult state = ControlResult::CONTROL_NONE;
-//     Gui::self().control.init(&render, &loader);
-//     while(state!=ControlResult::CONTROL_EXIT)
-//     {
-//         SDL_PollEvent(&event);
-//         state = Gui::self().control.control(event);
-//         render.drawFrame(loader);
-//         Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
-//         Gui::self().titleFPS();
-        
-//     }
-//     // SDL_Delay(2000);
-//     Gui::self().save_image("../../../result.png", Gui::self().textures[0]);
-
-//     Gui::self().quit();
-//     printf("triangle() cost %lfms/%.2f%% \n", t0, t0/(t0+t1)*100.f);
-//     printf("fragShader() cost %lfms/%.2f%% \n", t1, t1/(t0+t1)*100.f);
-//     return 0;    
-// }
-
-
-int main()
+int main(int argc, char* argv[])
 {
-    auto begin = clock();
-    parallel_for(blocked_range<size_t>(0, 20000), [](blocked_range<size_t>& r)
+#ifdef USE_SYCL
+    sycl::queue q;
+    sycl::device device = q.get_device();
+    std::cout << device.get_info<sycl::info::device::name>() << std::endl;
+#endif
+    // omp_set_num_threads(6);
+    omp_set_nested(1);
+    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer_multi/obj/Marry.obj", "C:/vscode_files/openrenderer_multi/obj/floor.obj"};
+    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
+
+
+    std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
+    std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
+    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), phong_FragmentShader);
+    Texture niucolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
+    Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
+    modelMats[1] = scale(0.2f, 0.2f, 0.2f);
+    fragmentShaders[1] = point_FragmentShader;
+
+    /*1. load the .obj*/
+    openrenderer::Loader loader;
+    loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&niucolorTexture}, {&niunormalTexture}, modelMats);
+    /*2. init SDL*/
+    Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
+    Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
+    /*3. init renderer*/
+    Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
+    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::FLAT, point_VertexShader, texture_FragmentShader);
+    /*4.init scene*/
+    Eigen::Vector3f eyePos(2.f, 2.f, -2.f);
+    std::vector<Light> lights = {
+        {{0.f, 20.f, -20.f}, {500, 500, 500}},
+        // {{20.f, 20.f, 20.f}, {500, 500, 500}},
+    };
+    ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
+
+    //main loop
+    SDL_Event event;
+    ControlResult state = ControlResult::CONTROL_NONE;
+    Gui::self().control.init(&render, &loader);
+    while(state!=ControlResult::CONTROL_EXIT)
     {
-        Eigen::Matrix4f mat = Eigen::Matrix4f::Random();
-    });
-    // for(int i=0; i<20000; i++)
+        SDL_PollEvent(&event);
+        state = Gui::self().control.control(event);
+        render.drawFrame(loader);
+        Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
+        Gui::self().titleFPS();
+        
+    }
+    // SDL_Delay(2000);
+    // for(int i=0; i<100; i++)
     // {
-    //     Eigen::Matrix4f mat = Eigen::Matrix4f::Random();
-    // };
-    auto end = clock();
-    std::cout << "cost time: " << end-begin << "ms." << std::endl; 
+    //     render.drawFrame(loader);
+    //     Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
+    // }
+    Gui::self().save_image("../../../result.png", Gui::self().textures[0]);
+
+    Gui::self().quit();
+    printf("clear() cost %lfms/%.2f%% \n", t0, t0/(t0+t1+t2+t3)*100.f);
+    printf("set_state() cost %lfms/%.2f%% \n", t1, t1/(t0+t1+t2+t3)*100.f);
+    printf("run() cost %lfms/%.2f%% \n", t2, t2/(t0+t1+t2+t3)*100.f);
+    printf("link() cost %lfms/%.2f%% \n", t3, t3/(t0+t1+t2+t3)*100.f);
+    printf("rasterize() cost %lfms/%.2f%% \n", t4, t4/(t2)*100.f);
+    printf("frame-time: %.2fms \n", (t0+t1+t2+t3)/100.f);
+    return 0;    
 }
+
+
+// int main()
+// {
+//     Point inputs[3];
+//     inputs[0].screen_pos = { 100, 100 };
+//     inputs[1].screen_pos = { 103, 120 };
+//     inputs[2].screen_pos = { 200, 300 };
+//     Eigen::Vector4f gl_Position[3];
+//     Point *raster_region = new Point[w*h];
+//     int size;
+//     Eigen::Vector3f res;
+//     auto start = std::chrono::high_resolution_clock::now();
+//     // #pragma omp parallel for num_threads(16)
+//     for(long i=0; i<100; i++)
+//         size = triangle(inputs, gl_Position, raster_region, 2*w*h, ShadeFrequency::GOURAUD, w, h, Region{ {0,0}, {w, h} });
+//         // res = barycentric(inputs, { 120, 120 });
+//     auto end = std::chrono::high_resolution_clock::now();
+//     t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+//     printf("triangle() cost %lfms \n", t0);
+//     printf("barycentric() cost %lfms/%.2f%% \n", t1, t1/(t0)*100.f);
+//     printf("set-value() cost %lfms/%.2f%% \n", t2, t2/(t0)*100.f);
+//     // std::cout << size << '\n';
+  
+// }
+  

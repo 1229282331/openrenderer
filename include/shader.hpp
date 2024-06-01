@@ -46,7 +46,7 @@ inline Eigen::Vector3f triangle_FragmentShader(const Point& input)
 {
     Eigen::Vector3f color = {1.f, 1.f, 1.f};
     // float cos_a = ubo.faceNormal.dot(ubo.lightDir);
-    float cos_a = input.v.normal.dot(-ubo.lightDir);
+    float cos_a = input.v.normal.normalized().dot(-ubo.lightDir);
     if(cos_a < 0.f)
         return {0.f, 0.f, 0.f};
     return cos_a * color;
@@ -54,7 +54,7 @@ inline Eigen::Vector3f triangle_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f normal_FragmentShader(const Point& input)
 {
-    Eigen::Vector3f color = (input.v.normal + Eigen::Vector3f(1.f, 1.f, 1.f))/2.f;
+    Eigen::Vector3f color = (input.v.normal.normalized() + Eigen::Vector3f(1.f, 1.f, 1.f))/2.f;
     return color;
 }
 
@@ -83,15 +83,17 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
 
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
     Eigen::Vector3f color = La;
+    Eigen::Vector3f n = input.attrs.normal.normalized();
     for(int i=0; i<ubo.lights.size(); i++)
     {
         Eigen::Vector3f l = (ubo.lights[i].pos-input.v.pos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-input.v.pos).normalized();
         Eigen::Vector3f h = (l+v).normalized();
         float r2_inverse = 1.f / std::pow((ubo.lights[i].pos-input.v.pos).norm(), 2.f);
+        float cos_a = std::max(0.f, n.dot(h));
 
-        Eigen::Vector3f Ld = kd.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * std::max(0.f, input.attrs.normal.dot(h));
-        Eigen::Vector3f Ls = ks.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * pow(std::max(0.f, input.attrs.normal.dot(h)), p);
+        Eigen::Vector3f Ld = kd.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * cos_a;
+        Eigen::Vector3f Ls = ks.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * pow(cos_a, p);
         color += (Ld + Ls);
     }
 
