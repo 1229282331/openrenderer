@@ -21,8 +21,8 @@
 #include "texture.hpp"
 // #include "tbb/tbb.h"
 
-const int w = 800;
-const int h = 800;
+const int w = 1440;
+const int h = 1080;
 openrenderer::Uniform ubo;
 
 #undef main     // remove the SDL defination for SDL_main: #define main SDL_main
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
     /*3. init renderer*/
     Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
-    render.init_pipeline(PrimitiveType::LINE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
+    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     /*4.init scene*/
     Eigen::Vector3f eyePos(2.f, 2.f, -2.f);
     std::vector<Light> lights = {
