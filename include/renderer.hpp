@@ -36,7 +36,7 @@ private:
     std::unique_ptr<Framebuffers> m_framebuffers;
     std::unique_ptr<Pipeline> m_pipeline[num_threads];
 
-    void linkSubFramebuffers();
+    void linkSubFramebuffers(BufferType type=BufferType::COLOR, int buf_id=0);
 
 };
 

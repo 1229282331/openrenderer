@@ -80,7 +80,8 @@ public:
     PrimitiveType primitiveType() { return m_primitiveType; }
     Framebuffers* framebuffers() { return m_framebuffers.get(); }
 
-
+    void set_vertexShader(std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShader) { m_vertexShaderFunc = vertexShader; }
+    void set_fragmentShader(std::function<Eigen::Vector3f(const Point&)> fragmentShader) { m_fragmentShaderFunc = fragmentShader; }
 
 private:
     Eigen::Vector4f                                                        gl_Position[3];

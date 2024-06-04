@@ -13,6 +13,7 @@ inline Eigen::Vector4f point_VertexShader(const vertex_shader_in& input, vertex_
     Eigen::Vector4f pos = ubo.projection * ubo.view * ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.pos.x(), input.vertex.pos.y(), input.vertex.pos.z(), 1.f);
     Eigen::Vector4f normal = ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.normal.x(), input.vertex.normal.y(), input.vertex.normal.z(), 0.f);
     out_attr.normal = Eigen::Vector3f(normal.x(), normal.y(), normal.z()).normalized();
+    out_attr.position = Eigen::Vector3f{pos.x(), pos.y(), pos.z()} / pos.w();
     return pos;
 }
 
@@ -21,7 +22,7 @@ inline Eigen::Vector4f nmap_VertexShader(const vertex_shader_in& input, vertex_s
     Eigen::Vector4f pos = ubo.projection * ubo.view * ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.pos.x(), input.vertex.pos.y(), input.vertex.pos.z(), 1.f);
     Eigen::Vector4f normal = ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.normal.x(), input.vertex.normal.y(), input.vertex.normal.z(), 0.f);
     out_attr.normal = Eigen::Vector3f(normal.x(), normal.y(), normal.z()).normalized();
-    out_attr.position = Eigen::Vector3f{pos.x(), pos.y(), pos.z()};
+    out_attr.position = Eigen::Vector3f{pos.x(), pos.y(), pos.z()} / pos.w();
 
     Eigen::Vector3f T = input.tangent;
     Eigen::Vector3f N = input.vertex.normal;
@@ -60,9 +61,8 @@ inline Eigen::Vector3f normal_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f depth_FragmentShader(const Point& input)
 {
-    float gray_value =  input.z;
-    gray_value = (1/gray_value - 1/0.1f) / ((1/100.f)-1/0.1f);
-    // std::cout << gray_value << std::endl;
+    float gray_value =  input.attrs.position.z();
+    // std::cout << gray_value << '\n';
     return {gray_value, gray_value, gray_value};
 }
 

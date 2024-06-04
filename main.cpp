@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
     // omp_set_num_threads(6);
     omp_set_nested(1);
     const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
+    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/spot_triangulated_good.obj"};
 
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
@@ -59,19 +59,20 @@ int main(int argc, char* argv[])
     /*1. load the .obj*/
     openrenderer::Loader loader;
     loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&niucolorTexture}, {&niunormalTexture}, modelMats);
-    /*2. init SDL*/
-    Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
-    Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
-    /*3. init renderer*/
-    Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
-    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
-    /*4.init scene*/
+    /*2.init scene*/
     Eigen::Vector3f eyePos(2.f, 2.f, -2.f);
     std::vector<Light> lights = {
-        {{0.f, 20.f, -20.f}, {500, 500, 500}},
-        // {{20.f, 20.f, 20.f}, {500, 500, 500}},
+        {{0.f, 20.f, -20.f}, {500, 500, 500}, true},
+        // {{2.f, 2.f, 2.f}, {500, 500, 500}, true},
     };
     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
+    /*3. init SDL*/
+    Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
+    Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
+    /*4. init renderer*/
+    Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::RGB888);
+    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
+    
 
     //main loop
     SDL_Event event;
