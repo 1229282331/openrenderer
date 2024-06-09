@@ -3,6 +3,7 @@
 #include <string>
 #include "Eigen/Eigen"
 #include "Eigen/Dense"
+#include "buffer.hpp"
 
 
 namespace openrenderer{

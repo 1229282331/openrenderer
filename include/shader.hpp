@@ -8,6 +8,8 @@ extern openrenderer::Uniform ubo;
 
 namespace openrenderer{
 
+
+
 inline Eigen::Vector4f point_VertexShader(const vertex_shader_in& input, vertex_shader_out& out_attr)
 {
     Eigen::Vector4f pos = ubo.projection * ubo.view * ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.pos.x(), input.vertex.pos.y(), input.vertex.pos.z(), 1.f);
@@ -17,7 +19,7 @@ inline Eigen::Vector4f point_VertexShader(const vertex_shader_in& input, vertex_
     return pos;
 }
 
-inline Eigen::Vector4f nmap_VertexShader(const vertex_shader_in& input, vertex_shader_out& out_attr)
+inline Eigen::Vector4f nmap_VertexShader(const vertex_shader_in& input, vertex_shader_out& out_attr) 
 {
     Eigen::Vector4f pos = ubo.projection * ubo.view * ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.pos.x(), input.vertex.pos.y(), input.vertex.pos.z(), 1.f);
     Eigen::Vector4f normal = ubo.models[input.obj_id] * Eigen::Vector4f(input.vertex.normal.x(), input.vertex.normal.y(), input.vertex.normal.z(), 0.f);
@@ -38,19 +40,63 @@ inline Eigen::Vector4f nmap_VertexShader(const vertex_shader_in& input, vertex_s
     return pos;
 }
 
+inline float getShadowBias(float c, int light_id, const Point& input)
+{
+    Eigen::Vector3f lightDir = (ubo.lights[light_id].pos - input.v.pos).normalized();
+    return lightDir.dot(input.attrs.normal) * c;
+}
+inline float isVisible(const Buffer* shadowMap, Eigen::Vector4f shadowCoord, float bias, int width, int height, const Point& input)
+{
+    Float32ToUint8 value;
+    int x = int((shadowCoord.x()/shadowCoord.w()+1.f)*float(width)/2.f);
+    int y = int((shadowCoord.y()/shadowCoord.w()+1.f)*float(height)/2.f);
+    value.arr[0] = shadowMap->get(y, x, ColorBit::B);
+    value.arr[1] = shadowMap->get(y, x, ColorBit::G);
+    value.arr[2] = shadowMap->get(y, x, ColorBit::R);
+    value.arr[3] = shadowMap->get(y, x, ColorBit::A);
+    float lightPass_depth = value.num;
+    float cameraPass_depth = shadowCoord.z() / shadowCoord.w();
+    if(lightPass_depth < cameraPass_depth - bias)
+        return 0.f;
+    return 1.f;
+}
+inline float calVisibility(const std::vector<Light>& lights, const Point& input)
+{
+    // get shading point position from light, calculate the visibility for this point
+    float visibility = 0.f;
+    int shadows_num = 0;
+    for(int i=0; i<lights.size(); i++)
+    {
+        if(lights[i].hasShadowMap)
+        {
+            Eigen::Vector4f posFromLight = lights[i].lightVP * ubo.models[input.obj_id] * Eigen::Vector4f{input.v.pos.x(), input.v.pos.y(), input.v.pos.z(), 1.f};
+            float bias = getShadowBias(0.001f, i, input);
+            visibility += isVisible(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input);
+            shadows_num++;
+        }
+    }
+    if(shadows_num==0)
+        visibility = 1.f;
+    else
+        visibility /= float(shadows_num);
+    return visibility;
+}
+
 inline Eigen::Vector3f point_FragmentShader(const Point& input)
 {
-    return {0.5f, 0.5f, 0.5f};
+    float visibility = calVisibility(ubo.lights, input);
+    return visibility * Eigen::Vector3f{ 0.5f, 0.5f, 0.5f };
 }
 
 inline Eigen::Vector3f triangle_FragmentShader(const Point& input)
 {
+    float visibility = calVisibility(ubo.lights, input);
     Eigen::Vector3f color = {1.f, 1.f, 1.f};
     // float cos_a = ubo.faceNormal.dot(ubo.lightDir);
     float cos_a = input.v.normal.normalized().dot(-ubo.lightDir);
     if(cos_a < 0.f)
         return {0.f, 0.f, 0.f};
-    return cos_a * color;
+    return visibility * cos_a * color;
 }
 
 inline Eigen::Vector3f normal_FragmentShader(const Point& input)
@@ -61,8 +107,10 @@ inline Eigen::Vector3f normal_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f depth_FragmentShader(const Point& input)
 {
-    float gray_value =  input.attrs.position.z();
+    float gray_value =  input.attrs.position.z();   // no-linear
+    // float gray_value =  input.z / 1000.f;     // linear
     // std::cout << gray_value << '\n';
+
     return {gray_value, gray_value, gray_value};
 }
 
@@ -75,6 +123,7 @@ inline Eigen::Vector3f texture_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f phong_FragmentShader(const Point& input)
 {
+    float visibility = calVisibility(ubo.lights, input);
     Eigen::Vector3f ka = {0.005f, 0.005f,0.005f};
     Eigen::Vector3f kd = input.colorTexture->getColor(input.v.texCoord.x(), input.v.texCoord.y());
     Eigen::Vector3f ks = {0.7937f, 0.7937f, 0.7937f};
@@ -97,11 +146,12 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
         color += (Ld + Ls);
     }
 
-    return color;
+    return visibility * color;
 }
 
 inline Eigen::Vector3f normalMapping_FragmentShader(const Point& input)
 {
+    float visibility = calVisibility(ubo.lights, input);
     Eigen::Vector3f ka = {0.005f, 0.005f,0.005f};
     Eigen::Vector3f kd = input.colorTexture->getColor(input.v.texCoord.x(), input.v.texCoord.y());
     Eigen::Vector3f ks = {0.7937f, 0.7937f, 0.7937f};
@@ -122,12 +172,13 @@ inline Eigen::Vector3f normalMapping_FragmentShader(const Point& input)
         Eigen::Vector3f Ls = ks.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * pow(std::max(0.f, normal.dot(h)), p);
         color += (Ld + Ls);
     }
-    return color;
+    return visibility * color;
 }
 
 inline Eigen::Vector3f bumpMapping_FragmentShader(const Point& input)
 {
-    float kh = 0.5f, kn = 0.5f;
+    float visibility = calVisibility(ubo.lights, input);
+    float kh = 0.7f, kn = 0.7f;
     // dU = kh * kn * (h(u+1/w,v)-h(u,v))
     float u_ = input.v.texCoord.x();   //u->[0,1]
     float v_ = input.v.texCoord.y();   //v->[0,1]
@@ -159,11 +210,12 @@ inline Eigen::Vector3f bumpMapping_FragmentShader(const Point& input)
         Eigen::Vector3f Ls = ks.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * pow(std::max(0.f, normal.dot(h)), p);
         color += (Ld + Ls);
     }
-    return color;
+    return visibility * color;
 }
 
 inline Eigen::Vector3f displaceMapping_FragmentShader(const Point& input)
 {
+    float visibility = calVisibility(ubo.lights, input);
     float kh = 0.3f, kn = 0.3f;
     // dU = kh * kn * (h(u+1/w,v)-h(u,v))
     float u_ = input.v.texCoord.x();   //u->[0,1]
@@ -197,9 +249,8 @@ inline Eigen::Vector3f displaceMapping_FragmentShader(const Point& input)
         color += (Ld + Ls);
     }
 
-    return color;
+    return visibility * color;
 }
-
 
 }
 

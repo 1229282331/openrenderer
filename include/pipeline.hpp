@@ -75,6 +75,7 @@ public:
     void update(Vertex v0, Vertex v1, Vertex v2, int idx0, int idx1, int idx2);
     void set_state(std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, std::function<Eigen::Vector3f(const Point&)> fragmentShader, Texture* colorTexture, Texture* normalTexture=nullptr, int max_rasterSize=3000, PrimitiveType primitive=PrimitiveType::TRIANGLE, ShadeFrequency freq=ShadeFrequency::FLAT);
     void run(int obj_id);
+    void generate_shadowmap(int obj_id, int shadowmap_id);
 
     Region        renderRegion() { return m_renderRegion; }
     PrimitiveType primitiveType() { return m_primitiveType; }

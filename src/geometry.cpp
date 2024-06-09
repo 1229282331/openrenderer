@@ -7,11 +7,7 @@
 extern openrenderer::Uniform ubo;
 
 namespace openrenderer{
-BufferType operator|(BufferType lhs, BufferType rhs)
-{
-    using underlying_t = std::underlying_type_t<BufferType>;  
-    return static_cast<BufferType>(static_cast<underlying_t>(lhs) | static_cast<underlying_t>(rhs));  
-}
+
 
 Eigen::Matrix4f scale(float rateX, float rateY, float rateZ)
 {
@@ -85,6 +81,20 @@ Eigen::Matrix4f lookAt(const Eigen::Vector3f& eyePos, const Eigen::Vector3f& cen
     return Result.transpose();
 }
 
+Eigen::Matrix4f ortho(float left, float right, float bottom, float top, float zNear, float zFar)
+{
+    // assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.f);
+
+    Eigen::Matrix4f res = Eigen::Matrix4f::Identity();
+    res(0, 0) = 2.f / (right - left);
+    res(1, 1) = 2.f / (top - bottom);
+    res(2, 2) = - 1.f / (zFar - zNear);
+    res(0, 3) = - (right + left) / (right - left);
+    res(1, 3) = - (top + bottom) / (top - bottom);
+    res(2, 3) = - zNear / (zFar - zNear);
+    return res;
+}
+
 Eigen::Matrix4f perspective(float fovy, float aspect, float z_near, float z_far)
 {
     // assert(abs(aspect - std::numeric_limits<float>::epsilon()) > 0.f);
@@ -124,70 +134,6 @@ void RT_decompose(const Eigen::Matrix4f& RT, Eigen::Matrix4f& R, Eigen::Matrix4f
 }
 
 
-Buffer::Buffer(const Buffer& rhs) : width(rhs.width), height(rhs.height) 
-{
-    size = rhs.size;
-    pbyte = rhs.pbyte;
-    format = rhs.format;
-    buffer = new uint8_t[size];
-    memcpy(buffer, rhs.buffer, sizeof(uint8_t)*size);
-}
-Buffer::Buffer(PixelFormat format_, int w, int h) : format(format_), width(w), height(h)
-{
-    switch (format)
-    {
-        case PixelFormat::RGB888:
-            pbyte = 3;
-            break;
-        case PixelFormat::ARGB8888:
-            pbyte = 4;
-            break;
-        case PixelFormat::GRAY8:
-            pbyte = 3;
-        default:
-            pbyte = 3;
-            break;
-    }
-    size = width * height * pbyte;
-    buffer = new uint8_t[size];
-    memset(buffer, 0, size);
-}
-Buffer::Buffer(PixelFormat format_, int w, int h, uint8_t* data) : format(format_), width(w), height(h)
-{
-    switch (format)
-    {
-        case PixelFormat::RGB888:
-            pbyte = 3;
-            break;
-        case PixelFormat::ARGB8888:
-            pbyte = 4;
-            break;
-        case PixelFormat::GRAY8:
-            pbyte = 3;
-        default:
-            pbyte = 3;
-            break;
-    }
-    size = width * height * pbyte;
-    buffer = new uint8_t[size];
-    memcpy(buffer, data, size);
-}
-Buffer& Buffer::operator=(const Buffer& rhs)
-{
-    delete []buffer;
-    width = rhs.width;
-    height = rhs.height;
-    size = rhs.size;
-    pbyte = rhs.pbyte;
-    format = rhs.format;
-    buffer = new uint8_t[size];
-    memcpy(buffer, rhs.buffer, sizeof(uint8_t)*size);
-    return *this;
-}
-
-
-
-
 Framebuffers::Framebuffers(int w, int h, bool enable_color, bool enable_depth, PixelFormat color_format, PixelFormat depth_format) : width(w), height(h)
 {
     if(enable_color)
@@ -199,7 +145,8 @@ Framebuffers::Framebuffers(int w, int h, bool enable_color, bool enable_depth, P
         {
             if(ubo.lights[i].hasShadowMap)
             {
-                depth_buffer.push_back(std::make_unique<Buffer>(depth_format, w, h));
+                Buffer* buf = new Buffer(depth_format, w, h);
+                depth_buffer.push_back(buf);
                 memset(depth_buffer[shadowMap_num]->buffer, 255, depth_buffer[shadowMap_num]->size);
                 shadowMap_num++;
             }
@@ -213,7 +160,11 @@ Framebuffers::~Framebuffers()
     delete []z_buffer;
     color_buffer.reset();
     for(int i=0; i<depth_buffer.size(); i++)
-        depth_buffer[i].reset();
+    {
+        delete depth_buffer[i];
+        depth_buffer[i] = nullptr;
+    }
+    depth_buffer.clear();
 }
 Framebuffers::Framebuffers(const Framebuffers& rhs)
 {
@@ -225,10 +176,16 @@ Framebuffers::Framebuffers(const Framebuffers& rhs)
     if(depth_buffer.size())
     {
         for(int i=0; i<depth_buffer.size(); i++)
-            depth_buffer[i].reset();
+        {
+            delete depth_buffer[i];
+            depth_buffer[i] = nullptr;
+        }
         depth_buffer.clear();
-        for(int i=0; i<rhs.depth_buffer.size(); i++)
-            depth_buffer.push_back(std::make_unique<Buffer>(*rhs.depth_buffer[i]));
+    }
+    for(int i=0; i<rhs.depth_buffer.size(); i++)
+    {
+        Buffer* buf = new Buffer(*rhs.depth_buffer[i]);
+        depth_buffer.push_back(buf);
     }
     if(z_buffer)
         delete []z_buffer;
@@ -250,6 +207,10 @@ void Framebuffers::clear(BufferType type)
         for(int i=0 ;i<depth_buffer.size(); i++)
             depth_buffer[i]->clear();
     }
+    std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());
+}
+void Framebuffers::clearZ()
+{
     std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());
 }
 

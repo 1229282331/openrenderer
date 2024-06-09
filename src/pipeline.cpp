@@ -124,6 +124,79 @@ void Pipeline::run(int obj_id)
     }
 }
 
+void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
+{
+    /*1.vertex shader*/
+    // Eigen::Vector3f tangent = Eigen::Vector3f::Zero();
+    // if(m_primitiveType==PrimitiveType::TRIANGLE) 
+    // {
+    //     if(m_vertexs[0].normal==Eigen::Vector3f::Zero() || m_vertexs[1].normal==Eigen::Vector3f::Zero() || m_vertexs[2].normal==Eigen::Vector3f::Zero())
+    //     {
+    //         Eigen::Vector3f faceNormal = (m_vertexs[1].pos-m_vertexs[0].pos).cross(m_vertexs[2].pos-m_vertexs[0].pos).normalized();
+    //         m_vertexs[0].normal = faceNormal;
+    //         m_vertexs[1].normal = faceNormal;
+    //         m_vertexs[2].normal = faceNormal;
+    //     }
+    //     tangent = calculate_tangent(m_vertexs);
+    // }
+    for(int i=0; i<int(m_primitiveType); i++)
+    {
+        vertex_shader_out out_attr{Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()};
+        vertex_shader_in input{m_vertexs[i], obj_id};
+        gl_Position[i] = vertex_shader(input, out_attr);
+        // viewport transform
+        int width = m_framebuffers->width, height = m_framebuffers->height;
+        gl_Position[i].w() = std::abs(gl_Position[i].w()); 
+        int x = int((gl_Position[i].x()/gl_Position[i].w()+1.f)*width/2.f);
+        int y = int((gl_Position[i].y()/gl_Position[i].w()+1.f)*height/2.f);
+        m_primitive[i].screen_pos = {x, y};
+        m_primitive[i].z = gl_Position[i].z()/gl_Position[i].w();
+        m_primitive[i].obj_id = input.obj_id;
+        m_attrs[i] = out_attr;
+    }
+    /*2.primitive assembly*/
+    primitive_assembly();
+    /*3.rasterization*/
+    Eigen::Vector2i box_min(4096, 2160); 
+    Eigen::Vector2i box_max(0, 0);
+    box_min.x() = std::clamp(std::min(m_primitive[0].screen_pos.x(), std::min(m_primitive[1].screen_pos.x(), m_primitive[2].screen_pos.x())), 0, m_framebuffers->width-1);
+    box_min.y() = std::clamp(std::min(m_primitive[0].screen_pos.y(), std::min(m_primitive[1].screen_pos.y(), m_primitive[2].screen_pos.y())), 0, m_framebuffers->height-1);
+    box_max.x() = std::clamp(std::max(m_primitive[0].screen_pos.x(), std::max(m_primitive[1].screen_pos.x(), m_primitive[2].screen_pos.x())), 0, m_framebuffers->width-1);
+    box_max.y() = std::clamp(std::max(m_primitive[0].screen_pos.y(), std::max(m_primitive[1].screen_pos.y(), m_primitive[2].screen_pos.y())), 0, m_framebuffers->height-1);
+    m_renderRegion = m_renderRegion.Union(Region{ box_min, box_max });
+    int num = 0;
+    for(int x=box_min.x(); x<=box_max.x(); x++)
+        for(int y=box_min.y(); y<=box_max.y(); y++)
+        {
+            Eigen::Vector3f bc = barycentric(m_primitive, Eigen::Vector2i(x, y));
+            if(bc.x()<0.f || bc.y()<0.f || bc.z()<0.f)
+                continue;
+
+            float Z = correction(bc, gl_Position);
+            m_rasterPoints[num].screen_pos = {x, y};
+            m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
+            num++;
+        }
+    m_rasterSize = num;
+    /*4.fragment shader*/
+    #pragma omp parallel for if(m_rasterSize>3000) num_threads(8)
+    for(int i=0; i<m_rasterSize; i++) 
+    {
+        if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.position.z(), 
+                m_framebuffers->width, m_framebuffers->height, m_framebuffers->z_buffer))
+        {
+            int x = m_rasterPoints[i].screen_pos.x();
+            int y = m_rasterPoints[i].screen_pos.y();
+            Float32ToUint8 value;
+            value.num = m_rasterPoints[i].attrs.position.z();
+            (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::B) = value.arr[0];
+            (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::G) = value.arr[1];
+            (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::R) = value.arr[2];
+            (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::A) = value.arr[3];
+        }
+    }
+}
+
     
 Eigen::Vector4f Pipeline::vertex_shader(const vertex_shader_in& intput, vertex_shader_out& output)
 {
@@ -209,9 +282,15 @@ int line(const Point* input, Point* raster_region, int max_size, int width, int 
     for(int x=x0; x<=x1 && num<max_size; x++)
     {
         if(is_steep)
+        {
             raster_region[num].screen_pos = {y, x};
+            raster_region[num].obj_id = input->obj_id;
+        }
         else
+        {
             raster_region[num].screen_pos = {x, y};
+            raster_region[num].obj_id = input->obj_id;
+        }
         error += abs_k;
         if(error > dx)
         {
@@ -259,7 +338,7 @@ bool test_depth(int x, int y, float z, int width, int height, float* z_buffer)
 {
     int index = y * width + x;
     bool is_shade = false;
-    if(z < z_buffer[index])
+    if(z < z_buffer[index] - 1e-4)
     {
         z_buffer[index] = z;
         is_shade = true;
@@ -286,6 +365,8 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
         Eigen::Vector2f faceTexCoord = 0.333f*(input[0].v.texCoord+input[1].v.texCoord+input[2].v.texCoord);
         Eigen::Matrix3f faceTBN = 0.333f*(input[0].attrs.TBN+input[1].attrs.TBN+input[2].attrs.TBN);
         Eigen::Vector3f facePosition = 0.333f*(input[0].attrs.position+input[1].attrs.position+input[2].attrs.position);
+        Eigen::Vector3f faceWorldPosition = 0.333f*(input[0].v.pos+input[1].v.pos+input[2].v.pos);
+        Eigen::Vector3f faceColor = 0.333f*(input[0].v.color+input[1].v.color+input[2].v.color);
         for(int x=box_min.x(); x<=box_max.x(); x++)
             for(int y=box_min.y(); y<=box_max.y(); y++)
             {
@@ -293,8 +374,11 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
                 if(bc.x()<0 || bc.y()<0 || bc.z()<0)
                     continue;
                 float Z = correction(bc, gl_Position);
+                raster_region[num].obj_id = input[0].obj_id;
                 raster_region[num].screen_pos = {x, y};
                 raster_region[num].z = Z;
+                raster_region[num].v.pos = faceWorldPosition;
+                raster_region[num].v.color = faceColor;
                 raster_region[num].v.normal = faceNormal;
                 raster_region[num].v.texCoord = faceTexCoord;
                 raster_region[num].attrs.normal = afterFaceNormal;
@@ -317,8 +401,11 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
                     continue;
 
                 float Z = correction(bc, gl_Position);
+                raster_region[num].obj_id = input[0].obj_id;
                 raster_region[num].screen_pos = {x, y};
                 raster_region[num].z = Z;
+                raster_region[num].v.pos = (bc.x()*input[0].v.pos + bc.y()*input[1].v.pos + bc.z()*input[2].v.pos);
+                raster_region[num].v.color = (bc.x()*input[0].v.color + bc.y()*input[1].v.color + bc.z()*input[2].v.color);
                 raster_region[num].v.normal = (bc.x()*input[0].v.normal + bc.y()*input[1].v.normal + bc.z()*input[2].v.normal);
                 raster_region[num].v.texCoord = (bc.x()*input[0].v.texCoord + bc.y()*input[1].v.texCoord + bc.z()*input[2].v.texCoord);
                 raster_region[num].v.texCoord.x() = std::clamp(raster_region[num].v.texCoord.x(), 0.f, 1.f);

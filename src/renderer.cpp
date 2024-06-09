@@ -35,10 +35,6 @@ void Render::drawFrame(const Loader& obj_loader)
         printf("[error] pipeline hasn't set!\n");
         return;
     }
-
-    #pragma omp parallel for num_threads(num_threads)
-    for(int i=0; i<num_threads; i++)
-        m_pipeline[i]->framebuffers()->clear(BufferType::COLOR|BufferType::DEPTH);
     m_framebuffers->clear(BufferType::COLOR|BufferType::DEPTH);
 
     // two-pass rendering
@@ -51,8 +47,13 @@ void Render::drawFrame(const Loader& obj_loader)
             continue;
         #pragma omp parallel for num_threads(num_threads)
         for(int i=0; i<num_threads; i++)
-            m_pipeline[i]->framebuffers()->clear(BufferType::COLOR);
-        ubo.init(m_width, m_height, ubo.models, ubo.lights[i].pos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, ubo.lights);
+            m_pipeline[i]->framebuffers()->clear(BufferType::DEPTH);
+        // ubo.init(m_width, m_height, ubo.models, ubo.lights[i].pos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 1000.f, {0.f, -1.f, 1.f}, ubo.lights);
+        ubo.cameraPos = ubo.lights[i].pos;
+        ubo.set_view(ubo.lights[i].pos, Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f));
+        ubo.set_orthoProjection(-5.f, 5.f, -5.f, 5.f, 0.1f, 100.f);
+        // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), 0.1f, 100.f);
+        ubo.lights[i].lightVP = ubo.projection * ubo.view;
         for(auto& obj : obj_loader.objects)
         {
             int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
@@ -61,46 +62,22 @@ void Render::drawFrame(const Loader& obj_loader)
             {
                 m_pipeline[i]->set_state(point_VertexShader, depth_FragmentShader, obj.colorTexture, obj.normalTexture, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
-
-            if(m_pipeline[0]->primitiveType()==PrimitiveType::POINT)
+            if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
             {
-                #pragma omp parallel for num_threads(use_threads)
-                for(int i=0; i<obj.vertices.size(); i++)
-                {
-                    int thread_id = omp_get_thread_num();
-                    m_pipeline[thread_id]->update(obj.vertices[i]);
-                    m_pipeline[thread_id]->run(obj.id);
-                }
-
-                linkSubFramebuffers();
-            }
-            else if(m_pipeline[0]->primitiveType()==PrimitiveType::LINE)
-            {
-                #pragma omp parallel for num_threads(use_threads)
-                for(int i=0; i<obj.indices.size(); i+=3)
-                {
-                    int thread_id = omp_get_thread_num();
-                    m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.indices[i], obj.indices[i+1]); //line v0v1
-                    m_pipeline[thread_id]->run(obj.id);
-                    m_pipeline[thread_id]->update(obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i+1], obj.indices[i+2]); //line v1v2
-                    m_pipeline[thread_id]->run(obj.id);
-                    m_pipeline[thread_id]->update(obj.vertices[obj.indices[i+2]], obj.vertices[obj.indices[i]], obj.indices[i+2], obj.indices[i]); //line v2v0
-                    m_pipeline[thread_id]->run(obj.id);
-                }
-                linkSubFramebuffers();
-            }
-            else if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
-            {
+                int id = 0;
                 #pragma omp parallel for num_threads(use_threads)
                 for(int i=0; i<obj.indices.size(); i+=3)
                 {
                     int thread_id = omp_get_thread_num();
                     m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
-                    m_pipeline[thread_id]->run(obj.id);
+                    m_pipeline[thread_id]->generate_shadowmap(obj.id, shadowMap_num);
+                    // id = (id +1) % num_threads;
                 }
             }
             linkSubFramebuffers(BufferType::DEPTH, shadowMap_num);
         }
+        
+        ubo.lights[i].shadowMap = m_framebuffers->depth_buffer[shadowMap_num];
         shadowMap_num++;
     }
     /* 2.second pass from camera */
@@ -194,9 +171,9 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
         for(int x=region.min.x(); x<=region.max.x(); x++)
             for(int y=region.min.y(); y<=region.max.y(); y++)
             {
-                float min_z = std::numeric_limits<float>::max();
                 int thread_id = 0;
                 int index = y*m_width+x;
+                float min_z = std::numeric_limits<float>::max();
                 for(int i=0; i<num_threads; i++)
                 {
                     if(m_pipeline[i]->framebuffers()->z_buffer[index] < min_z)
@@ -205,10 +182,10 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
                         thread_id = i;
                     }
                 }
-                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::R) = (*m_pipeline[thread_id]->framebuffers()->color_buffer)(y, x, ColorBit::R);
-                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::G) = (*m_pipeline[thread_id]->framebuffers()->color_buffer)(y, x, ColorBit::G);
-                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::B) = (*m_pipeline[thread_id]->framebuffers()->color_buffer)(y, x, ColorBit::B);
-                m_framebuffers->z_buffer[index] = min_z;
+                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::B) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::B);
+                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::G) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::G);
+                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::R) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::R);
+                (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::A) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::A);
             }
     }
 }

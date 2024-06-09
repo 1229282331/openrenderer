@@ -11,7 +11,6 @@ Texture::Texture(const std::string& name)
         printf("[error]: can't load the texture:%s\n", name.c_str());
 }
 
-
 Texture::~Texture() 
 { 
     stbi_image_free(data); 

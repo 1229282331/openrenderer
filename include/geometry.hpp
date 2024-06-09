@@ -5,16 +5,20 @@
 #include <vector>
 #include <array>
 #include <iostream>
+#include "buffer.hpp"
 #include "texture.hpp"
 
 #define MY_PI 3.1415926
 
 
 namespace openrenderer{
-enum class PixelFormat{ RGB888=1, ARGB8888, GRAY8 };
-enum class ColorBit{ B=0, G, R, A };
-enum class BufferType{ COLOR=0x01, DEPTH=0x02,  };
-BufferType operator|(BufferType lhs, BufferType rhs);
+
+union Float32ToUint8
+{
+    float num;
+    uint8_t arr[4];
+};
+
 
 Eigen::Matrix4f scale(float rateX, float rateY, float rateZ);
 
@@ -23,6 +27,8 @@ Eigen::Matrix4f rotate(float angle, const Eigen::Vector3f& v);
 Eigen::Matrix4f translate(const Eigen::Vector3f& v);
 
 Eigen::Matrix4f lookAt(const Eigen::Vector3f& eyePos, const Eigen::Vector3f& center=Eigen::Vector3f(0.f, 0.f, 0.f), const Eigen::Vector3f& up=Eigen::Vector3f(0.f, 1.f, 0.f));
+
+Eigen::Matrix4f ortho(float left, float right, float bottom, float top, float zNear, float zFar);
 
 Eigen::Matrix4f perspective(float fovy, float aspect, float z_near, float z_far);
 
@@ -34,6 +40,8 @@ struct Light{
     Eigen::Vector3f pos;
     Eigen::Vector3f intensity;
     bool hasShadowMap;
+    Eigen::Matrix4f lightVP;
+    Buffer* shadowMap;
 };
 
 struct Uniform{
@@ -56,7 +64,14 @@ struct Uniform{
     void set_model(int index, Eigen::Matrix4f modelMat) { models[index] = modelMat; }
     void set_view(const Eigen::Vector3f& cameraPos, const Eigen::Vector3f& lookat, const Eigen::Vector3f& up) { view = lookAt(cameraPos, lookat, up); }
     void set_view(Eigen::Matrix4f viewMat) { view = viewMat; }
-    void set_projection(float fovy, float aspect, float z_near, float z_far)   { projection = perspective(fovy, aspect, z_near, z_far); }
+    void set_projection(float fovy, float aspect, float z_near, float z_far)   
+    { 
+        projection = perspective(fovy, aspect, z_near, z_far); 
+    }
+    void set_orthoProjection(float left, float right, float bottom, float top, float z_near, float z_far)   
+    { 
+        projection = ortho(left, right, bottom, top, z_near, z_far); 
+    }
     void set_projection(Eigen::Matrix4f projectionMat) { projection = projectionMat; }
     void move_model(int index, float alpha, const Eigen::Vector3f& axis, const Eigen::Vector3f& trans)
     {
@@ -78,7 +93,7 @@ struct Uniform{
     void init(int width_, int height_, std::vector<Eigen::Matrix4f> modelMats, const Eigen::Vector3f& cameraPos_, float aspect, 
                 const Eigen::Vector3f& lookat=Eigen::Vector3f::Zero(), const Eigen::Vector3f& up=Eigen::Vector3f(0.f, 1.f, 0.f), float fovy=45.f, float z_near=0.1f, float z_far=10.f, const Eigen::Vector3f& lightDir_={0.f, 0.f, 1.f}, const std::vector<Light>& lights_=std::vector<Light>())
     {
-        width = width;
+        width = width_;
         height = height_;
         cameraPos = cameraPos_;
         set_models(modelMats);
@@ -136,31 +151,11 @@ struct Triangle{
     std::array<int, 3> index;
 };
 
-
-struct Buffer{
-    uint8_t* buffer;
-    int size;
-    int pbyte;
-    PixelFormat format;
-    int width;
-    int height;
-    Buffer() : buffer(NULL), size(0), pbyte(3), format(PixelFormat::RGB888), width(0), height(0) {  }
-    Buffer(const Buffer& rhs);
-    Buffer(PixelFormat format_, int w, int h);
-    Buffer(PixelFormat format_, int w, int h, uint8_t* data);
-    ~Buffer() { delete []buffer; }
-    uint8_t& operator()(int i, int j, ColorBit bit) { return buffer[pbyte*(i*width+j)+int(bit)];  } 
-    Buffer& operator=(const Buffer& rhs);
-    uint8_t  get(int i, int j, ColorBit bit) { return buffer[pbyte*(i*width+j)+int(bit)];  } 
-    void     set(int i, int j, ColorBit bit, uint8_t value) { buffer[pbyte*(i*width+j)+int(bit)]=value; }
-    void     clear() { memset(buffer, 0, size); }
-};
-
 struct Framebuffers{
     int width;
     int height;
     std::unique_ptr<Buffer> color_buffer;
-    std::vector<std::unique_ptr<Buffer>> depth_buffer;
+    std::vector<Buffer*>    depth_buffer;
     float*                  z_buffer = nullptr;
 
 
@@ -168,6 +163,7 @@ struct Framebuffers{
     ~Framebuffers();
     Framebuffers(const Framebuffers& rhs);
     void clear(BufferType type);
+    void clearZ();
 };
 
 }
