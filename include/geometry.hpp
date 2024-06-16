@@ -8,7 +8,8 @@
 #include "buffer.hpp"
 #include "texture.hpp"
 
-#define MY_PI 3.1415926
+#define MY_PI 3.141592653589793
+#define MY_2PI 6.283185307179586
 
 
 namespace openrenderer{
@@ -53,6 +54,8 @@ struct Uniform{
     std::vector<Light> lights;
     int width;
     int height;
+    float shadowmap_zNear;
+    float shadowmap_zFar;
 
     void set_models(std::vector<Eigen::Matrix4f> modelMats) { models = modelMats; }
     void set_model(int index, float alpha, const Eigen::Vector3f& axis, const Eigen::Vector3f& trans) 

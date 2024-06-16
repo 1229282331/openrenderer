@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
     // omp_set_num_threads(6);
     omp_set_nested(1);
     const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
+    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/floor.obj"};
 
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
@@ -56,7 +56,7 @@ int main(int argc, char* argv[])
     Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/brickwall.jpg");
     Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
     modelMats[1] = scale(0.15f, 1.f, 0.15f) * translate({0.F, 0.03F, 0.F});
-    fragmentShaders[1] = normalMapping_FragmentShader;
+    // fragmentShaders[1] = point_FragmentShader;
 
     /*1. load the .obj*/
     openrenderer::Loader loader;
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
     Eigen::Vector3f eyePos(3.f, 3.f, -3.f);
     std::vector<Light> lights = {
         {{0.f, 20.f, 20.f}, {500, 500, 500}, true, Eigen::Matrix4f::Identity(), nullptr},
-        // {{20.f, 20.f, 20.f}, {100, 100, 100}, true, Eigen::Matrix4f::Identity(), nullptr},
+        // {{20.f, 20.f, 20.f}, {100, 100, 100}, false, Eigen::Matrix4f::Identity(), nullptr},
     };
     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
     /*3. init SDL*/
@@ -109,21 +109,11 @@ int main(int argc, char* argv[])
     return 0;    
 }
 
-// union float2char
-// {
-//     float f32;
-//     uint8_t uint8_array[4];
-// }a;
 
 
 // int main()
 // {
-//     a.uint8_array[0] = 195;
-//     a.uint8_array[1] = 245;
-//     a.uint8_array[2] = 72;
-//     a.uint8_array[3] = 64;
-
-//     std::cout << a.f32 << '\n';
+//     std::cout << sqrt(-1.3) << std::endl;
   
 // }
   

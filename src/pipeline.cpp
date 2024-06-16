@@ -106,7 +106,7 @@ void Pipeline::run(int obj_id)
     /*3.rasterization*/
     rasterization();
     /*4.fragment shader*/
-    #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(6)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].z, 
@@ -126,19 +126,6 @@ void Pipeline::run(int obj_id)
 
 void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
 {
-    /*1.vertex shader*/
-    // Eigen::Vector3f tangent = Eigen::Vector3f::Zero();
-    // if(m_primitiveType==PrimitiveType::TRIANGLE) 
-    // {
-    //     if(m_vertexs[0].normal==Eigen::Vector3f::Zero() || m_vertexs[1].normal==Eigen::Vector3f::Zero() || m_vertexs[2].normal==Eigen::Vector3f::Zero())
-    //     {
-    //         Eigen::Vector3f faceNormal = (m_vertexs[1].pos-m_vertexs[0].pos).cross(m_vertexs[2].pos-m_vertexs[0].pos).normalized();
-    //         m_vertexs[0].normal = faceNormal;
-    //         m_vertexs[1].normal = faceNormal;
-    //         m_vertexs[2].normal = faceNormal;
-    //     }
-    //     tangent = calculate_tangent(m_vertexs);
-    // }
     for(int i=0; i<int(m_primitiveType); i++)
     {
         vertex_shader_out out_attr{Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()};
@@ -166,6 +153,7 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
     m_renderRegion = m_renderRegion.Union(Region{ box_min, box_max });
     int num = 0;
     for(int x=box_min.x(); x<=box_max.x(); x++)
+    {
         for(int y=box_min.y(); y<=box_max.y(); y++)
         {
             Eigen::Vector3f bc = barycentric(m_primitive, Eigen::Vector2i(x, y));
@@ -176,10 +164,15 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
             m_rasterPoints[num].screen_pos = {x, y};
             m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
             num++;
+            if(num > m_maxRasterSize) 
+                break;
         }
+        if(num > m_maxRasterSize)
+            break;
+    }
     m_rasterSize = num;
     /*4.fragment shader*/
-    #pragma omp parallel for if(m_rasterSize>3000) num_threads(8)
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(6)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.position.z(), 

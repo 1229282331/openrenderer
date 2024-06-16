@@ -2,8 +2,6 @@
 
 #include "geometry.hpp"
 
-#define MY_PI 3.1415926
-
 extern openrenderer::Uniform ubo;
 
 namespace openrenderer{

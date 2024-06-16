@@ -50,8 +50,10 @@ void Render::drawFrame(const Loader& obj_loader)
             m_pipeline[i]->framebuffers()->clear(BufferType::DEPTH);
         // ubo.init(m_width, m_height, ubo.models, ubo.lights[i].pos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 1000.f, {0.f, -1.f, 1.f}, ubo.lights);
         ubo.cameraPos = ubo.lights[i].pos;
+        ubo.shadowmap_zNear = 0.1f;
+        ubo.shadowmap_zFar = 100.f;
         ubo.set_view(ubo.lights[i].pos, Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f));
-        ubo.set_orthoProjection(-5.f, 5.f, -5.f, 5.f, 0.1f, 100.f);
+        ubo.set_orthoProjection(-10.f, 10.f, -10.f, 10.f, ubo.shadowmap_zNear, ubo.shadowmap_zFar);
         // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), 0.1f, 100.f);
         ubo.lights[i].lightVP = ubo.projection * ubo.view;
         for(auto& obj : obj_loader.objects)
@@ -64,14 +66,12 @@ void Render::drawFrame(const Loader& obj_loader)
             }
             if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
             {
-                int id = 0;
                 #pragma omp parallel for num_threads(use_threads)
                 for(int i=0; i<obj.indices.size(); i+=3)
                 {
                     int thread_id = omp_get_thread_num();
                     m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
                     m_pipeline[thread_id]->generate_shadowmap(obj.id, shadowMap_num);
-                    // id = (id +1) % num_threads;
                 }
             }
             linkSubFramebuffers(BufferType::DEPTH, shadowMap_num);

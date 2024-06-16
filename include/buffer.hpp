@@ -25,10 +25,25 @@ struct Buffer{
     Buffer(PixelFormat format_, int w, int h);
     Buffer(PixelFormat format_, int w, int h, uint8_t* data);
     ~Buffer() { delete []buffer; }
-    uint8_t& operator()(int i, int j, ColorBit bit) { return buffer[pbyte*(i*width+j)+int(bit)];  } 
+    uint8_t& operator()(int i, int j, ColorBit bit) 
+    { 
+        i = std::clamp(i, 0, height-1);
+        j = std::clamp(j, 0, width-1);
+        return buffer[pbyte*(i*width+j)+int(bit)];  
+    } 
     Buffer& operator=(const Buffer& rhs);
-    uint8_t  get(int i, int j, ColorBit bit) const { return buffer[pbyte*(i*width+j)+int(bit)];  } 
-    void     set(int i, int j, ColorBit bit, uint8_t value) { buffer[pbyte*(i*width+j)+int(bit)]=value; }
+    uint8_t  get(int i, int j, ColorBit bit) const 
+    { 
+        i = std::clamp(i, 0, height-1);
+        j = std::clamp(j, 0, width-1);
+        return buffer[pbyte*(i*width+j)+int(bit)];  
+    } 
+    void     set(int i, int j, ColorBit bit, uint8_t value) 
+    { 
+        i = std::clamp(i, 0, height-1);
+        j = std::clamp(j, 0, width-1);
+        buffer[pbyte*(i*width+j)+int(bit)]=value; 
+    }
     void     clear() { memset(buffer, 0, size); }
     void     depth2gray();
 };
