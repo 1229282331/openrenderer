@@ -6,6 +6,7 @@ namespace openrenderer{
 Pipeline::~Pipeline()
 {
     m_framebuffers.reset();
+    m_gbuffers.reset();
     clear();
 }
 
@@ -49,7 +50,7 @@ void Pipeline::clear()
 
 void Pipeline::set_state(std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShader, 
                             std::function<Eigen::Vector3f(const Point&)> fragmentShader, 
-                            Texture* colorTexture, Texture* normalTexture,
+                            Texture* colorTexture, Texture* normalTexture, Gbuffers* defferedGbuffers,
                             int max_rasterSize, PrimitiveType primitive, ShadeFrequency freq)
 {
     m_renderRegion.reset();
@@ -58,6 +59,7 @@ void Pipeline::set_state(std::function<Eigen::Vector4f(const vertex_shader_in&, 
     m_primitiveType = primitive;
     m_colorTexture = colorTexture;
     m_normalTexture = normalTexture;
+    m_defferedGbuffers = defferedGbuffers;
     m_shadeFrequency = freq;
     m_rasterSize = 0;
     if(max_rasterSize > m_maxRasterSize)
@@ -106,7 +108,7 @@ void Pipeline::run(int obj_id)
     /*3.rasterization*/
     rasterization();
     /*4.fragment shader*/
-    #pragma omp parallel for if(m_rasterSize>5000) num_threads(6)
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].z, 
@@ -114,12 +116,72 @@ void Pipeline::run(int obj_id)
         {
             m_rasterPoints[i].colorTexture = m_colorTexture;
             m_rasterPoints[i].normalTexture = m_normalTexture;
+            m_rasterPoints[i].gbuffers = m_defferedGbuffers;
             Eigen::Vector3f color = fragment_shader(m_rasterPoints[i]);
             int x = m_rasterPoints[i].screen_pos.x();
             int y = m_rasterPoints[i].screen_pos.y();
             (*m_framebuffers->color_buffer)(y, x, ColorBit::R) = static_cast<uint8_t>(std::clamp(color.x(), 0.f, 1.f)*255.f);
             (*m_framebuffers->color_buffer)(y, x, ColorBit::G) = static_cast<uint8_t>(std::clamp(color.y(), 0.f, 1.f)*255.f);
             (*m_framebuffers->color_buffer)(y, x, ColorBit::B) = static_cast<uint8_t>(std::clamp(color.z(), 0.f, 1.f)*255.f);
+        }
+    }
+}
+
+void Pipeline::generate_gbuffers(int obj_id)
+{
+    Eigen::Vector3f tangent = Eigen::Vector3f::Zero();
+    if(m_primitiveType==PrimitiveType::TRIANGLE) 
+    {
+        if(m_vertexs[0].normal==Eigen::Vector3f::Zero() || m_vertexs[1].normal==Eigen::Vector3f::Zero() || m_vertexs[2].normal==Eigen::Vector3f::Zero())
+        {
+            Eigen::Vector3f faceNormal = (m_vertexs[1].pos-m_vertexs[0].pos).cross(m_vertexs[2].pos-m_vertexs[0].pos).normalized();
+            m_vertexs[0].normal = faceNormal;
+            m_vertexs[1].normal = faceNormal;
+            m_vertexs[2].normal = faceNormal;
+        }
+        tangent = calculate_tangent(m_vertexs);
+    }
+    for(int i=0; i<int(m_primitiveType); i++)
+    {
+        vertex_shader_out out_attr{Eigen::Vector3f::Zero(), Eigen::Matrix3f::Identity(), Eigen::Vector3f::Zero()};
+        vertex_shader_in input{m_vertexs[i], obj_id, tangent};
+        gl_Position[i] = vertex_shader(input, out_attr);
+        // viewport transform
+        int width = m_framebuffers->width, height = m_framebuffers->height;
+        gl_Position[i].w() = std::abs(gl_Position[i].w()); 
+        int x = int((gl_Position[i].x()/gl_Position[i].w()+1.f)*width/2.f);
+        int y = int((gl_Position[i].y()/gl_Position[i].w()+1.f)*height/2.f);
+        m_primitive[i].screen_pos = {x, y};
+        m_primitive[i].z = gl_Position[i].z()/gl_Position[i].w();
+        m_primitive[i].obj_id = input.obj_id;
+        m_attrs[i] = out_attr;
+    }
+    /*2.primitive assembly*/
+    primitive_assembly();
+    /*3.rasterization*/
+    rasterization();
+    /*4.fragment shader*/
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
+    for(int i=0; i<m_rasterSize; i++) 
+    {
+        if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].z, 
+                m_framebuffers->width, m_framebuffers->height, m_framebuffers->z_buffer))
+        {
+            m_rasterPoints[i].colorTexture = m_colorTexture;
+            m_rasterPoints[i].normalTexture = m_normalTexture;
+            int x = m_rasterPoints[i].screen_pos.x();
+            int y = m_rasterPoints[i].screen_pos.y();
+            Eigen::Vector3f color = fragment_shader(m_rasterPoints[i]);
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.position.x();
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.position.y();
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::R) = m_rasterPoints[i].attrs.position.z();
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::A) = m_rasterPoints[i].attrs.position.z();
+            (*m_gbuffers->normal_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.normal.x();
+            (*m_gbuffers->normal_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.normal.y();
+            (*m_gbuffers->normal_buffer)(y, x, ColorBit::R) = m_rasterPoints[i].attrs.normal.z();
+            (*m_gbuffers->albedo_buffer)(y, x, ColorBit::B) = color.x();
+            (*m_gbuffers->albedo_buffer)(y, x, ColorBit::G) = color.y();
+            (*m_gbuffers->albedo_buffer)(y, x, ColorBit::R) = color.z();
         }
     }
 }
@@ -172,7 +234,7 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
     }
     m_rasterSize = num;
     /*4.fragment shader*/
-    #pragma omp parallel for if(m_rasterSize>5000) num_threads(6)
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.position.z(), 
@@ -203,6 +265,7 @@ void Pipeline::primitive_assembly()
         m_primitive[i].v = m_vertexs[i];
         m_primitive[i].colorTexture = m_colorTexture;
         m_primitive[i].normalTexture = m_normalTexture;
+        m_primitive[i].gbuffers = m_defferedGbuffers;
         m_primitive[i].attrs = m_attrs[i];
     }
 }

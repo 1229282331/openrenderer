@@ -6,6 +6,26 @@ extern openrenderer::Uniform ubo;
 
 namespace openrenderer{
 
+void sampleFromHalfSphere(std::vector<Eigen::Vector3f>& samples, int sample_num)
+{
+    std::uniform_real_distribution<float> randomFloats(0.f, 1.f);
+    std::default_random_engine generator;
+    std::function<float(float, float, float)> lerp = [](float a, float b, float f){ return a+f*(b-a); };
+    for (int i = 0; i < sample_num; ++i)
+    {
+        Eigen::Vector3f point(
+            randomFloats(generator) * 2.0f - 1.0f, 
+            randomFloats(generator) * 2.0f - 1.0f, 
+            randomFloats(generator)
+        );
+        point = point.normalized();
+        point *= randomFloats(generator);
+        float scale = i / 64.0f; 
+        scale = lerp(0.1f, 1.0f, scale * scale);
+        point *= scale;
+        samples.push_back(point);  
+    }
+}
 
 Eigen::Matrix4f scale(float rateX, float rateY, float rateZ)
 {
@@ -135,7 +155,7 @@ void RT_decompose(const Eigen::Matrix4f& RT, Eigen::Matrix4f& R, Eigen::Matrix4f
 Framebuffers::Framebuffers(int w, int h, bool enable_color, bool enable_depth, PixelFormat color_format, PixelFormat depth_format) : width(w), height(h)
 {
     if(enable_color)
-        color_buffer = std::make_unique<Buffer>(color_format, w, h);
+        color_buffer = std::make_unique<Buffer<uint8_t>>(color_format, w, h);
     if(enable_depth)
     {
         int shadowMap_num = 0;
@@ -143,7 +163,7 @@ Framebuffers::Framebuffers(int w, int h, bool enable_color, bool enable_depth, P
         {
             if(ubo.lights[i].hasShadowMap)
             {
-                Buffer* buf = new Buffer(depth_format, w, h);
+                Buffer<uint8_t>* buf = new Buffer<uint8_t>(depth_format, w, h);
                 depth_buffer.push_back(buf);
                 memset(depth_buffer[shadowMap_num]->buffer, 255, depth_buffer[shadowMap_num]->size);
                 shadowMap_num++;
@@ -170,7 +190,7 @@ Framebuffers::Framebuffers(const Framebuffers& rhs)
     height = rhs.height;
     if(color_buffer.get())
         color_buffer.reset();
-    color_buffer = std::make_unique<Buffer>(*rhs.color_buffer);
+    color_buffer = std::make_unique<Buffer<uint8_t>>(*rhs.color_buffer);
     if(depth_buffer.size())
     {
         for(int i=0; i<depth_buffer.size(); i++)
@@ -182,7 +202,7 @@ Framebuffers::Framebuffers(const Framebuffers& rhs)
     }
     for(int i=0; i<rhs.depth_buffer.size(); i++)
     {
-        Buffer* buf = new Buffer(*rhs.depth_buffer[i]);
+        Buffer<uint8_t>* buf = new Buffer<uint8_t>(*rhs.depth_buffer[i]);
         depth_buffer.push_back(buf);
     }
     if(z_buffer)
@@ -210,6 +230,36 @@ void Framebuffers::clear(BufferType type)
 void Framebuffers::clearZ()
 {
     std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());
+}
+
+Gbuffers::Gbuffers(int w, int h, PixelFormat format)
+{
+    position_buffer = std::make_unique<Buffer<float>>(format, w, h);
+    normal_buffer = std::make_unique<Buffer<float>>(format, w, h);
+    albedo_buffer = std::make_unique<Buffer<float>>(format, w, h);
+}
+Gbuffers::~Gbuffers()
+{
+    position_buffer.reset();
+    normal_buffer.reset();
+    albedo_buffer.reset();
+}
+Gbuffers::Gbuffers(const Gbuffers& rhs)
+{
+    width = rhs.width;
+    height = rhs.height;
+    position_buffer.reset();
+    normal_buffer.reset();
+    albedo_buffer.reset();
+    position_buffer = std::make_unique<Buffer<float>>(*rhs.position_buffer);
+    normal_buffer = std::make_unique<Buffer<float>>(*rhs.normal_buffer);
+    albedo_buffer = std::make_unique<Buffer<float>>(*rhs.albedo_buffer);
+}
+void Gbuffers::clear()
+{
+    position_buffer->clear();
+    normal_buffer->clear();
+    albedo_buffer->clear();
 }
 
 

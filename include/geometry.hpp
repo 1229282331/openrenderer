@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <array>
+#include <random>
 #include <iostream>
 #include "buffer.hpp"
 #include "texture.hpp"
@@ -20,6 +21,7 @@ union Float32ToUint8
     uint8_t arr[4];
 };
 
+void sampleFromHalfSphere(std::vector<Eigen::Vector3f>& samples, int sample_num=64);
 
 Eigen::Matrix4f scale(float rateX, float rateY, float rateZ);
 
@@ -42,7 +44,7 @@ struct Light{
     Eigen::Vector3f intensity;
     bool hasShadowMap;
     Eigen::Matrix4f lightVP;
-    Buffer* shadowMap;
+    Buffer<uint8_t>* shadowMap;
 };
 
 struct Uniform{
@@ -52,6 +54,7 @@ struct Uniform{
     Eigen::Vector3f cameraPos;
     Eigen::Vector3f lightDir;
     std::vector<Light> lights;
+    std::vector<Eigen::Vector3f> sampleFromHalfSphere;
     int width;
     int height;
     float shadowmap_zNear;
@@ -134,13 +137,15 @@ struct vertex_shader_out{
     Eigen::Vector3f position;
 };
 
+struct Gbuffers;
 struct Point{
     Eigen::Vector2i screen_pos;
-    float z;
+    float z;    // the depth in world space
     Vertex v;
     int obj_id;
-    Texture *colorTexture = nullptr;
-    Texture *normalTexture = nullptr;
+    Texture*  colorTexture = nullptr;
+    Texture*  normalTexture = nullptr;
+    Gbuffers* gbuffers = nullptr;
     vertex_shader_out attrs;
 };
 
@@ -157,8 +162,8 @@ struct Triangle{
 struct Framebuffers{
     int width;
     int height;
-    std::unique_ptr<Buffer> color_buffer;
-    std::vector<Buffer*>    depth_buffer;
+    std::unique_ptr<Buffer<uint8_t>> color_buffer;
+    std::vector<Buffer<uint8_t>*>    depth_buffer;
     float*                  z_buffer = nullptr;
 
 
@@ -167,6 +172,20 @@ struct Framebuffers{
     Framebuffers(const Framebuffers& rhs);
     void clear(BufferType type);
     void clearZ();
+};
+
+struct  Gbuffers{
+    int width;
+    int height;
+    std::unique_ptr<Buffer<float>> position_buffer;
+    std::unique_ptr<Buffer<float>> normal_buffer;
+    std::unique_ptr<Buffer<float>> albedo_buffer;
+
+    Gbuffers() {  }
+    Gbuffers(int w, int h, PixelFormat format=PixelFormat::ARGB8888);
+    ~Gbuffers();
+    Gbuffers(const Gbuffers& rhs);
+    void clear();
 };
 
 }

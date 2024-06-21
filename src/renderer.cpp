@@ -4,14 +4,18 @@
 
 namespace openrenderer{
 
-Render::Render(int w, int h, bool enable_color, bool enable_depth, PixelFormat color_format, PixelFormat depth_format) : m_width(w), m_height(h)
+Render::Render(int w, int h, bool enable_color, bool enable_depth, bool enable_defferedRender, PixelFormat color_format, PixelFormat depth_format, PixelFormat gbuffer_format) : m_width(w), m_height(h), m_isDefferedRender(enable_defferedRender)
 {
     m_framebuffers = std::make_unique<Framebuffers>(w, h, enable_color, enable_depth, color_format, depth_format);
+    if(enable_defferedRender)
+        m_gbuffers = std::make_unique<Gbuffers>(w, h, gbuffer_format);
+    m_isDefferedRender = enable_defferedRender;
 }
 
 Render::~Render()
 {
     m_framebuffers.reset();
+    m_gbuffers.reset();
     for(int i=0; i<num_threads; i++)
         m_pipeline[i].reset();
 }
@@ -21,7 +25,7 @@ void Render::init_pipeline(PrimitiveType primitive, ShadeFrequency freq,
                             std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc)
 {
     for(int i=0; i<num_threads; i++)
-        m_pipeline[i] = std::make_unique<Pipeline>(primitive, freq, vertexShaderFunc, fragmentShaderFunc, *m_framebuffers);
+        m_pipeline[i] = std::make_unique<Pipeline>(primitive, freq, vertexShaderFunc, fragmentShaderFunc, *m_framebuffers, m_gbuffers.get());
 }
 
 
@@ -36,6 +40,8 @@ void Render::drawFrame(const Loader& obj_loader)
         return;
     }
     m_framebuffers->clear(BufferType::COLOR|BufferType::DEPTH);
+    if(m_isDefferedRender)
+        m_gbuffers->clear();
 
     // two-pass rendering
     /* 1.first pass test depth from camera */
@@ -62,7 +68,7 @@ void Render::drawFrame(const Loader& obj_loader)
 
             for(int i=0; i<num_threads; i++)
             {
-                m_pipeline[i]->set_state(point_VertexShader, depth_FragmentShader, obj.colorTexture, obj.normalTexture, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
+                m_pipeline[i]->set_state(point_VertexShader, depth_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
             if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
             {
@@ -81,18 +87,43 @@ void Render::drawFrame(const Loader& obj_loader)
         shadowMap_num++;
     }
     /* 2.second pass from camera */
+    ubo.init(m_width, m_height, ubo.models, cameraPos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, ubo.lights);
+    /* deffered rendering */
+    if(m_isDefferedRender)
+    {
+        #pragma omp parallel for num_threads(num_threads)
+        for(int i=0; i<num_threads; i++)
+        {
+            m_pipeline[i]->framebuffers()->clearZ();
+            m_pipeline[i]->gbuffers()->clear();
+        }
+        for(auto& obj : obj_loader.objects)
+        {
+            int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
+            for(int i=0; i<num_threads; i++)
+            {
+                m_pipeline[i]->set_state(gbuffer_VertexShader, albedo_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
+            }
+            #pragma omp parallel for num_threads(use_threads)
+            for(int i=0; i<obj.indices.size(); i+=3)
+            {
+                int thread_id = omp_get_thread_num();
+                m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
+                m_pipeline[thread_id]->generate_gbuffers(obj.id);
+            }
+            linkSubGbuffers();
+        }
+    }
+    /* simple rendering */
     #pragma omp parallel for num_threads(num_threads)
     for(int i=0; i<num_threads; i++)
         m_pipeline[i]->framebuffers()->clear(BufferType::COLOR);
-    ubo.init(m_width, m_height, ubo.models, cameraPos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, ubo.lights);
     for(auto& obj : obj_loader.objects)
     {
         int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
 
         for(int i=0; i<num_threads; i++)
-        {
-            m_pipeline[i]->set_state(obj.vertexShader, obj.fragmentShader, obj.colorTexture, obj.normalTexture, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
-        }
+            m_pipeline[i]->set_state(obj.vertexShader, obj.fragmentShader, obj.colorTexture, obj.normalTexture, m_gbuffers.get(), std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
 
         if(m_pipeline[0]->primitiveType()==PrimitiveType::POINT)
         {
@@ -188,6 +219,42 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
                 (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::A) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::A);
             }
     }
+}
+
+void Render::linkSubGbuffers()
+{
+    Region region;
+    for(int i=0; i<num_threads; i++)
+        region = region.Union(m_pipeline[i]->renderRegion());
+
+    #pragma omp parallel for num_threads(16)
+    for(int x=region.min.x(); x<=region.max.x(); x++)
+        for(int y=region.min.y(); y<=region.max.y(); y++)
+        {
+            float min_z = std::numeric_limits<float>::max();
+            int thread_id = 0;
+            int index = y*m_width+x;
+            for(int i=0; i<num_threads; i++)
+            {
+                if(m_pipeline[i]->framebuffers()->z_buffer[index] < min_z)
+                {
+                    min_z = m_pipeline[i]->framebuffers()->z_buffer[index];
+                    thread_id = i;
+                }
+            }
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::B) = (*m_pipeline[thread_id]->gbuffers()->position_buffer)(y, x, ColorBit::B);
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::G) = (*m_pipeline[thread_id]->gbuffers()->position_buffer)(y, x, ColorBit::G);
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::R) = (*m_pipeline[thread_id]->gbuffers()->position_buffer)(y, x, ColorBit::R);
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::A) = (*m_pipeline[thread_id]->gbuffers()->position_buffer)(y, x, ColorBit::A);
+            (*m_gbuffers->normal_buffer)(y, x, ColorBit::B) = (*m_pipeline[thread_id]->gbuffers()->normal_buffer)(y, x, ColorBit::B);
+            (*m_gbuffers->normal_buffer)(y, x, ColorBit::G) = (*m_pipeline[thread_id]->gbuffers()->normal_buffer)(y, x, ColorBit::G);
+            (*m_gbuffers->normal_buffer)(y, x, ColorBit::R) = (*m_pipeline[thread_id]->gbuffers()->normal_buffer)(y, x, ColorBit::R);
+            (*m_gbuffers->albedo_buffer)(y, x, ColorBit::B) = (*m_pipeline[thread_id]->gbuffers()->albedo_buffer)(y, x, ColorBit::B);
+            (*m_gbuffers->albedo_buffer)(y, x, ColorBit::G) = (*m_pipeline[thread_id]->gbuffers()->albedo_buffer)(y, x, ColorBit::G);
+            (*m_gbuffers->albedo_buffer)(y, x, ColorBit::R) = (*m_pipeline[thread_id]->gbuffers()->albedo_buffer)(y, x, ColorBit::R);
+            m_framebuffers->z_buffer[index] = min_z;
+        }
+    
 }
 
 }

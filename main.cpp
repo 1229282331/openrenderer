@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
     // omp_set_num_threads(6);
     omp_set_nested(1);
     const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/floor.obj"};
+    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
 
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
@@ -55,7 +55,7 @@ int main(int argc, char* argv[])
     Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
     Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/brickwall.jpg");
     Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
-    modelMats[1] = scale(0.15f, 1.f, 0.15f) * translate({0.F, 0.03F, 0.F});
+    modelMats[1] = scale(0.15f, 1.f, 0.15f) * translate({0.F, 0.0001f, 0.F});
     // fragmentShaders[1] = point_FragmentShader;
 
     /*1. load the .obj*/
@@ -65,14 +65,15 @@ int main(int argc, char* argv[])
     Eigen::Vector3f eyePos(3.f, 3.f, -3.f);
     std::vector<Light> lights = {
         {{0.f, 20.f, 20.f}, {500, 500, 500}, true, Eigen::Matrix4f::Identity(), nullptr},
-        // {{20.f, 20.f, 20.f}, {100, 100, 100}, false, Eigen::Matrix4f::Identity(), nullptr},
+        // {{20.f, 20.f, -20.f}, {100, 100, 100}, false, Eigen::Matrix4f::Identity(), nullptr},
     };
     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
+    sampleFromHalfSphere(ubo.sampleFromHalfSphere, 10);
     /*3. init SDL*/
     Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
     Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
     /*4. init renderer*/
-    Render render(w, h, true, true, PixelFormat::RGB888, PixelFormat::ARGB8888);
+    Render render(w, h, true, true, true, PixelFormat::RGB888, PixelFormat::ARGB8888, PixelFormat::ARGB8888);
     render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     
 
@@ -85,7 +86,7 @@ int main(int argc, char* argv[])
         SDL_PollEvent(&event);
         state = Gui::self().control.control(event);
         render.drawFrame(loader);
-        // render.framebuffers()->depth_buffer[0]->depth2gray();
+        // depth2gray(*render.framebuffers()->depth_buffer[0]);
         // Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->depth_buffer[0]->buffer, render.width()*render.framebuffers()->depth_buffer[0]->pbyte);
         Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
         Gui::self().titleFPS();
