@@ -51,6 +51,13 @@ inline Eigen::Vector4f nmap_VertexShader(const vertex_shader_in& input, vertex_s
     return pos;
 }
 
+inline Eigen::Vector2i worldPos2screenPos(Eigen::Vector3f worldPos)
+{
+    Eigen::Vector4f ndcPos = ubo.projection * ubo.view * Eigen::Vector4f{worldPos.x(), worldPos.y(), worldPos.z(), 1.f};
+    int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f);
+    int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
+    return Eigen::Vector2i{x, y};
+}
 inline float depth2Linear(float z, float zNear, float zFar)
 {
     return zNear + (zFar-zNear)*z;
@@ -342,12 +349,14 @@ inline float calSSAO(const Point& input, float radius=0.05f)
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
         Eigen::Vector4f offset{samplePos.x(), samplePos.y(), samplePos.z(), 1.f};
-        offset = ubo.projection * ubo.view * offset;
-        int x = int((offset.x()/offset.w()+1.f)*float(ubo.width)/2.f);
-        int y = int((offset.y()/offset.w()+1.f)*float(ubo.height)/2.f);
-        float depth = (*input.gbuffers->position_buffer)(y, x, ColorBit::A);
-        
-        if(sign*samplePos.z() > sign*depth + 2e-2)
+        Eigen::Vector4f viewPos = ubo.view * offset;
+        Eigen::Vector4f ndcPos = ubo.projection * viewPos;
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f);
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
+        float depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        float sample_depth = -viewPos.z() / viewPos.w();
+        // std::cout << sample_depth << ',' << depth << '\n';
+        if(sample_depth > depth + 2e-2)
             occlusion += 1.f;
     }
     occlusion /= float(ubo.sampleFromHalfSphere.size());
@@ -370,10 +379,12 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
         Eigen::Vector4f offset{samplePos.x(), samplePos.y(), samplePos.z(), 1.f};
-        offset = ubo.projection * ubo.view * offset;
-        int x = int((offset.x()/offset.w()+1.f)*float(ubo.width)/2.f);
-        int y = int((offset.y()/offset.w()+1.f)*float(ubo.height)/2.f);
-        float depth = (*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        Eigen::Vector4f viewPos = ubo.view * offset;
+        Eigen::Vector4f ndcPos = ubo.projection * viewPos;
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f);
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
+        float depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        float sample_depth = -viewPos.z() / viewPos.w();
         Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(y, x, ColorBit::B),
                                                (*input.gbuffers->albedo_buffer)(y, x, ColorBit::G),
                                                (*input.gbuffers->albedo_buffer)(y, x, ColorBit::R) };
@@ -383,12 +394,42 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
         float r2_inverse = 1.f / std::pow((samplePos-input.v.pos).norm(), 2.f);
         float cos_a = std::max(0.f, normal.dot(h));
         albedo = albedo * cos_a;
-        if(sign*samplePos.z() >= sign*depth + 2e-2)
+        if(sample_depth > depth + 1e-2)
             ambient += albedo;
     }
     ambient /= float(ubo.sampleFromHalfSphere.size());
     return ambient;
 }
+inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
+{
+    float step_size = 0.01f;
+    int max_search_time = 1000;
+
+    Eigen::Vector3f current_ori = ori;
+    Eigen::Vector3f step = step_size * dir;
+    current_ori += step;
+    for(int i=0; i<max_search_time; i++)
+    {
+        Eigen::Vector4f viewPos = ubo.view * Eigen::Vector4f{current_ori.x(), current_ori.y(), current_ori.z(), 1.f};
+        Eigen::Vector4f ndcPos = ubo.projection * viewPos;
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f);
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
+        float ori_depth = -viewPos.z() / viewPos.w();
+        float min_scene_depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        // std::cout << ori_depth << ',' << min_scene_depth << '\n';
+        if(ori_depth > min_scene_depth + 1e-4)
+        {
+            hitPos = current_ori;
+            hitPos = Eigen::Vector3f{float(min_scene_depth), float(min_scene_depth), float(min_scene_depth)} / 10.f;
+            std::cout << ori_depth << ',' << min_scene_depth << '\n';
+            return true;
+        }
+        current_ori += step;
+    }
+
+    return false;
+}
+
 
 inline Eigen::Vector3f point_FragmentShader(const Point& input)
 {
@@ -415,19 +456,26 @@ inline Eigen::Vector3f normal_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f depth_FragmentShader(const Point& input)
 {
-    float gray_value =  input.attrs.position.z();   // no-linear
-    // float gray_value =  input.z / 1000.f;     // linear
+    // float gray_value =  input.attrs.position.z();   // no-linear
+    float gray_value =  input.z;     // linear
     // std::cout << gray_value << '\n';
 
     return {gray_value, gray_value, gray_value};
 }
-
+inline Eigen::Vector3f shadowmap_FragmentShader(const Point& input)
+{
+    float visibility = calVisibility(ubo.lights, input, "pcss");
+    return {visibility, visibility, visibility};
+}
 inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
 {
     float pos_x = (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B);
     float pos_y = (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float pos_z = (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
     Eigen::Vector3f pos_color = { pos_x, pos_y, pos_z };
+    float depth = (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::A);
+    // std::cout << depth << '\n';
+    Eigen::Vector3f depth_color = -Eigen::Vector3f{ depth, depth, depth } / 10.f;
     float nor_x = (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B);
     float nor_y = (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float nor_z = (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
@@ -436,7 +484,8 @@ inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
     float alb_y = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float alb_z = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
     Eigen::Vector3f alb_color = { alb_x, alb_y, alb_z };
-    return alb_color;
+
+    return depth_color;
 }
 
 inline Eigen::Vector3f ssao_FragmentShader(const Point& input)
@@ -455,15 +504,19 @@ inline Eigen::Vector3f ssao_FragmentShader(const Point& input)
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
         Eigen::Vector4f offset{samplePos.x(), samplePos.y(), samplePos.z(), 1.f};
-        offset = ubo.projection * ubo.view * offset;
-        int x = int((offset.x()/offset.w()+1.f)*float(ubo.width)/2.f);
-        int y = int((offset.y()/offset.w()+1.f)*float(ubo.height)/2.f);
-        float depth = (*input.gbuffers->position_buffer)(y, x, ColorBit::A);
-        if(sign*samplePos.z() >= sign*depth + 2e-2)
+        Eigen::Vector4f viewPos = ubo.view * offset;
+        Eigen::Vector4f ndcPos = ubo.projection * viewPos;
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f);
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
+        float depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        float sample_depth = -viewPos.z() / viewPos.w();
+        // std::cout << sample_depth << ',' << depth << '\n';
+        if(sample_depth > depth + 1e-2)
             occlusion += 1.f;
     }
     occlusion /= float(ubo.sampleFromHalfSphere.size());
     float gray = 1.f - occlusion;
+    // return {depth, depth, depth};
     return {gray, gray, gray};
 }
 inline Eigen::Vector3f ssdo_FragmentShader(const Point& input)
@@ -482,10 +535,12 @@ inline Eigen::Vector3f ssdo_FragmentShader(const Point& input)
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
         Eigen::Vector4f offset{samplePos.x(), samplePos.y(), samplePos.z(), 1.f};
-        offset = ubo.projection * ubo.view * offset;
-        int x = int((offset.x()/offset.w()+1.f)*float(ubo.width)/2.f);
-        int y = int((offset.y()/offset.w()+1.f)*float(ubo.height)/2.f);
-        float depth = (*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        Eigen::Vector4f viewPos = ubo.view * offset;
+        Eigen::Vector4f ndcPos = ubo.projection * viewPos;
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f);
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
+        float depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
+        float sample_depth = -viewPos.z() / viewPos.w();
         Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(y, x, ColorBit::B),
                                                (*input.gbuffers->albedo_buffer)(y, x, ColorBit::G),
                                                (*input.gbuffers->albedo_buffer)(y, x, ColorBit::R) };
@@ -495,7 +550,7 @@ inline Eigen::Vector3f ssdo_FragmentShader(const Point& input)
         float r2_inverse = 1.f / std::pow((samplePos-input.v.pos).norm(), 2.f);
         float cos_a = std::max(0.f, normal.dot(h));
         albedo = albedo * cos_a;
-        if(sign*samplePos.z() >= sign*depth + 2e-2)
+        if(sample_depth > depth + 1e-2)
             ambient += albedo;
     }
     ambient /= float(ubo.sampleFromHalfSphere.size());
@@ -511,8 +566,8 @@ inline Eigen::Vector3f texture_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f albedo_FragmentShader(const Point& input)
 {
-    float visibility = calVisibility(ubo.lights, input, "pcss");
-    // float visibility = 1.f;
+    // float visibility = calVisibility(ubo.lights, input, "pcss");
+    float visibility = 1.f;
     Eigen::Vector3f ka = {0.1f, 0.1f,0.1f};
     Eigen::Vector3f kd = input.colorTexture->getColor(input.v.texCoord.x(), input.v.texCoord.y());
     Eigen::Vector3f ks = {0.7937f, 0.7937f, 0.7937f};
@@ -544,10 +599,10 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
     // float occlusion = 0.f;
     float visibility = calVisibility(ubo.lights, input, "pcss");
     // Eigen::Vector3f ka = {0.1f, 0.1f,0.1f};
-    Eigen::Vector3f ka =  calSSDO(input, 0.1f);
+    Eigen::Vector3f ka =  calSSDO(input, 0.05f);
     Eigen::Vector3f kd = input.colorTexture->getColor(input.v.texCoord.x(), input.v.texCoord.y());
     Eigen::Vector3f ks = {0.7937f, 0.7937f, 0.7937f};
-    Eigen::Vector3f amb_intensity = {1.f, 1.f, 1.f};
+    Eigen::Vector3f amb_intensity = {0.5f, 0.5f, 0.5f};
     float p = 250.f;
 
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
@@ -567,6 +622,51 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
     }
 
     return visibility * color;
+}
+
+inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
+{
+    auto evalDiffuseFunc = [&](Eigen::Vector3f wi, Eigen::Vector3f wo, Eigen::Vector2i screenPos)
+    {   
+        Eigen::Vector3f L;
+        Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
+                                                  (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
+                                                  (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
+        Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
+                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
+                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
+        float cos_a = std::max(0.f, normal.dot(wi));
+        L = (albedo*INV_PI) * cos_a;
+        return L;
+    };
+    auto evalReflectedFunc = [&](Eigen::Vector3f wi, Eigen::Vector3f wo, Eigen::Vector2i screenPos)
+    {
+        Eigen::Vector3f pos = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
+                                                  (*input.gbuffers->position_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
+                                                  (*input.gbuffers->position_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
+        Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
+                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
+                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
+        Eigen::Vector3f reflect_dir = reflect(wo, normal);
+        Eigen::Vector3f hitPos = {0.f, 0.f, 0.f};
+        if(rayMarch(pos, reflect_dir, hitPos, input))
+        {
+            Eigen::Vector2i screenHitPos = worldPos2screenPos(hitPos);
+            Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::B),
+                                                      (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::G),
+                                                      (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::R) };
+            // return Eigen::Vector3f{1.f, 1.f, 1.f};
+            return hitPos;
+            return albedo;
+        }
+        return Eigen::Vector3f{0.f, 0.f, 0.f};
+    };
+    Eigen::Vector3f position = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
+                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
+                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
+    Eigen::Vector3f wi = (ubo.lights[0].pos-position).normalized();
+    Eigen::Vector3f wo = (ubo.cameraPos-position).normalized();
+    return evalReflectedFunc(wi, wo, input.screen_pos);
 }
 
 inline Eigen::Vector3f normalMapping_FragmentShader(const Point& input)

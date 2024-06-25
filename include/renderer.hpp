@@ -32,7 +32,7 @@ private:
     int m_width;
     int m_height;
     int m_isDefferedRender;
-    static const int num_threads = 4;
+    static const int num_threads = 1;
 
     std::unique_ptr<Framebuffers> m_framebuffers;
     std::unique_ptr<Gbuffers> m_gbuffers;

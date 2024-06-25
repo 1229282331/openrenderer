@@ -80,7 +80,7 @@ public:
     void generate_gbuffers(int obj_id);
     void generate_shadowmap(int obj_id, int shadowmap_id);
 
-    Region        renderRegion() { return m_renderRegion; }
+    Region&        renderRegion() { return m_renderRegion; }
     PrimitiveType primitiveType() { return m_primitiveType; }
     Framebuffers* framebuffers() { return m_framebuffers.get(); }
     Gbuffers*     gbuffers() { return m_gbuffers.get(); }

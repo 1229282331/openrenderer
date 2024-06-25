@@ -27,6 +27,18 @@ void sampleFromHalfSphere(std::vector<Eigen::Vector3f>& samples, int sample_num)
     }
 }
 
+float viewDepth2screenDepth(float view_depth, float zNear, float zFar)
+{
+    return (1.f/view_depth-1.f/zNear) / (1.f/zFar-1.f/zNear);
+}
+
+Eigen::Vector3f reflect(Eigen::Vector3f wi, Eigen::Vector3f normal)
+{
+    //wi is from the shading root
+    float cos_a = wi.dot(normal);
+    return (2.f*cos_a*normal - wi).normalized();
+}
+
 Eigen::Matrix4f scale(float rateX, float rateY, float rateZ)
 {
     Eigen::Matrix4f Scale = Eigen::Matrix4f::Identity();
@@ -260,6 +272,8 @@ void Gbuffers::clear()
     position_buffer->clear();
     normal_buffer->clear();
     albedo_buffer->clear();
+    for(int i=3; i<width*height*4; i+=4)
+        position_buffer->buffer[i] = std::numeric_limits<float>::max();
 }
 
 

@@ -36,45 +36,84 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
         Object obj;
         obj.id = i;
         std::unordered_map<std::pair<int, int>,int, ObjHashFunc> vertex_map;   // used to remove repeated vertex
-
         for(auto shape : shapes)    // loop all object meshes
         {
-            for(auto idx : shape.mesh.indices)  // loop all indices
+            if(shape.mesh.indices.size() > 1000)
             {
-                Vertex vertex{};
-                vertex.pos = {
-                    attrib.vertices[3*idx.vertex_index+0],
-                    attrib.vertices[3*idx.vertex_index+1],
-                    attrib.vertices[3*idx.vertex_index+2],
-                };
-                if(attrib.texcoords.size()!=0)
+                for(auto idx : shape.mesh.indices)  // loop all indices
                 {
-                    vertex.texCoord = {
-                        attrib.texcoords[2*idx.texcoord_index+0],
-                        attrib.texcoords[2*idx.texcoord_index+1],
+                    Vertex vertex{};
+                    vertex.pos = {
+                        attrib.vertices[3*idx.vertex_index+0],
+                        attrib.vertices[3*idx.vertex_index+1],
+                        attrib.vertices[3*idx.vertex_index+2],
                     };
-                }
-                else
-                    vertex.texCoord = {0.f, 0.f};
-                if(attrib.normals.size()!=0)
-                {
-                    vertex.normal = {
-                        attrib.normals[3*idx.normal_index+0],
-                        attrib.normals[3*idx.normal_index+1],
-                        attrib.normals[3*idx.normal_index+2],
-                    };
-                }
-                else
-                    vertex.normal = {0.f, 0.f, 0.f};
-                vertex.color = {1.f, 1.f, 1.f};
+                    if(attrib.texcoords.size()!=0)
+                    {
+                        vertex.texCoord = {
+                            attrib.texcoords[2*idx.texcoord_index+0],
+                            attrib.texcoords[2*idx.texcoord_index+1],
+                        };
+                    }
+                    else
+                        vertex.texCoord = {0.f, 0.f};
+                    if(attrib.normals.size()!=0)
+                    {
+                        vertex.normal = {
+                            attrib.normals[3*idx.normal_index+0],
+                            attrib.normals[3*idx.normal_index+1],
+                            attrib.normals[3*idx.normal_index+2],
+                        };
+                    }
+                    else
+                        vertex.normal = {0.f, 0.f, 0.f};
+                    vertex.color = {1.f, 1.f, 1.f};
 
-                std::pair<int, int>vandt_pair = {idx.vertex_index, idx.texcoord_index};
-                if(vertex_map.count(vandt_pair)==0)
+                    std::pair<int, int>vandt_pair = {idx.vertex_index, idx.texcoord_index};
+                    if(vertex_map.count(vandt_pair)==0)
+                    {
+                        vertex_map[vandt_pair] = static_cast<uint32_t>(obj.vertices.size());
+                        obj.vertices.push_back(vertex);
+                    }
+                    obj.indices.push_back(vertex_map[vandt_pair]);
+                }
+            }
+            else
+            {
+                for(auto idx : shape.mesh.indices)  // loop all indices
                 {
+                    Vertex vertex{};
+                    vertex.pos = {
+                        attrib.vertices[3*idx.vertex_index+0],
+                        attrib.vertices[3*idx.vertex_index+1],
+                        attrib.vertices[3*idx.vertex_index+2],
+                    };
+                    if(attrib.texcoords.size()!=0)
+                    {
+                        vertex.texCoord = {
+                            attrib.texcoords[2*idx.texcoord_index+0],
+                            attrib.texcoords[2*idx.texcoord_index+1],
+                        };
+                    }
+                    else
+                        vertex.texCoord = {0.f, 0.f};
+                    if(attrib.normals.size()!=0)
+                    {
+                        vertex.normal = {
+                            attrib.normals[3*idx.normal_index+0],
+                            attrib.normals[3*idx.normal_index+1],
+                            attrib.normals[3*idx.normal_index+2],
+                        };
+                    }
+                    else
+                        vertex.normal = {0.f, 0.f, 0.f};
+                    vertex.color = {1.f, 1.f, 1.f};
+
+                    std::pair<int, int>vandt_pair = {idx.vertex_index, idx.texcoord_index};
                     vertex_map[vandt_pair] = static_cast<uint32_t>(obj.vertices.size());
                     obj.vertices.push_back(vertex);
+                    obj.indices.push_back(vertex_map[vandt_pair]);
                 }
-                obj.indices.push_back(vertex_map[vandt_pair]);
             }
         }
         obj.bounding_box = get_boundingBox(obj.vertices, true);

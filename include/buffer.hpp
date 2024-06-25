@@ -124,6 +124,7 @@ inline void depth2gray(Buffer<uint8_t>& depthBuf)
         value.arr[2] = depthBuf.buffer[i+2];
         value.arr[3] = depthBuf.buffer[i+3];
         float gray_value = value.num; 
+        // std::cout << int(depthBuf.buffer[i]) << '\n';
         depthBuf.buffer[i] = static_cast<uint8_t>(std::clamp(gray_value, 0.f, 1.f)*255.f);
         depthBuf.buffer[i+1] = static_cast<uint8_t>(std::clamp(gray_value, 0.f, 1.f)*255.f);
         depthBuf.buffer[i+2] = static_cast<uint8_t>(std::clamp(gray_value, 0.f, 1.f)*255.f);

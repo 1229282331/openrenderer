@@ -53,7 +53,6 @@ void Pipeline::set_state(std::function<Eigen::Vector4f(const vertex_shader_in&, 
                             Texture* colorTexture, Texture* normalTexture, Gbuffers* defferedGbuffers,
                             int max_rasterSize, PrimitiveType primitive, ShadeFrequency freq)
 {
-    m_renderRegion.reset();
     m_vertexShaderFunc = vertexShader;
     m_fragmentShaderFunc = fragmentShader;
     m_primitiveType = primitive;
@@ -159,7 +158,43 @@ void Pipeline::generate_gbuffers(int obj_id)
     /*2.primitive assembly*/
     primitive_assembly();
     /*3.rasterization*/
-    rasterization();
+    Eigen::Vector2i box_min(4096, 2160); 
+    Eigen::Vector2i box_max(0, 0);
+    box_min.x() = std::clamp(std::min(m_primitive[0].screen_pos.x(), std::min(m_primitive[1].screen_pos.x(), m_primitive[2].screen_pos.x())), 0, m_framebuffers->width-1);
+    box_min.y() = std::clamp(std::min(m_primitive[0].screen_pos.y(), std::min(m_primitive[1].screen_pos.y(), m_primitive[2].screen_pos.y())), 0, m_framebuffers->height-1);
+    box_max.x() = std::clamp(std::max(m_primitive[0].screen_pos.x(), std::max(m_primitive[1].screen_pos.x(), m_primitive[2].screen_pos.x())), 0, m_framebuffers->width-1);
+    box_max.y() = std::clamp(std::max(m_primitive[0].screen_pos.y(), std::max(m_primitive[1].screen_pos.y(), m_primitive[2].screen_pos.y())), 0, m_framebuffers->height-1);
+    m_renderRegion = m_renderRegion.Union(Region{ box_min, box_max });
+    int num = 0;
+    for(int x=box_min.x(); x<=box_max.x(); x++)
+    {
+        for(int y=box_min.y(); y<=box_max.y(); y++)
+        {
+            Eigen::Vector3f bc = barycentric(m_primitive, Eigen::Vector2i(x, y));
+            if(bc.x()<0.f || bc.y()<0.f || bc.z()<0.f)
+                continue;
+
+            float Z = correction(bc, gl_Position);
+            m_rasterPoints[num].screen_pos = {x, y};
+            m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
+            m_rasterPoints[num].z = Z;
+            m_rasterPoints[num].v.pos.z() = (bc.x()*m_primitive[0].z + bc.y()*m_primitive[1].z + bc.z()*m_primitive[2].z);  // save the ndc-space depth
+            m_rasterPoints[num].v.color = (bc.x()*m_primitive[0].v.color + bc.y()*m_primitive[1].v.color + bc.z()*m_primitive[2].v.color);
+            m_rasterPoints[num].v.normal = (bc.x()*m_primitive[0].v.normal + bc.y()*m_primitive[1].v.normal + bc.z()*m_primitive[2].v.normal);
+            m_rasterPoints[num].v.texCoord = (bc.x()*m_primitive[0].v.texCoord + bc.y()*m_primitive[1].v.texCoord + bc.z()*m_primitive[2].v.texCoord);
+            m_rasterPoints[num].v.texCoord.x() = std::clamp(m_rasterPoints[num].v.texCoord.x(), 0.f, 1.f);
+            m_rasterPoints[num].v.texCoord.y() = std::clamp(m_rasterPoints[num].v.texCoord.y(), 0.f, 1.f);
+            m_rasterPoints[num].attrs.normal = (bc.x()*m_primitive[0].attrs.normal + bc.y()*m_primitive[1].attrs.normal + bc.z()*m_primitive[2].attrs.normal);
+            m_rasterPoints[num].attrs.TBN = bc.x()*m_primitive[0].attrs.TBN + bc.y()*m_primitive[1].attrs.TBN + bc.z()*m_primitive[2].attrs.TBN;
+            m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
+            num++;
+            if(num > m_maxRasterSize) 
+                break;
+        }
+        if(num > m_maxRasterSize)
+            break;
+    }
+    m_rasterSize = num;
     /*4.fragment shader*/
     #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
     for(int i=0; i<m_rasterSize; i++) 
@@ -172,10 +207,11 @@ void Pipeline::generate_gbuffers(int obj_id)
             int x = m_rasterPoints[i].screen_pos.x();
             int y = m_rasterPoints[i].screen_pos.y();
             Eigen::Vector3f color = fragment_shader(m_rasterPoints[i]);
+            Eigen::Vector4f viewPos = ubo.view * Eigen::Vector4f{m_rasterPoints[i].attrs.position.x(), m_rasterPoints[i].attrs.position.y(), m_rasterPoints[i].attrs.position.z(), 1.f};
             (*m_gbuffers->position_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.position.x();
             (*m_gbuffers->position_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.position.y();
             (*m_gbuffers->position_buffer)(y, x, ColorBit::R) = m_rasterPoints[i].attrs.position.z();
-            (*m_gbuffers->position_buffer)(y, x, ColorBit::A) = m_rasterPoints[i].attrs.position.z();
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::A) = viewPos.z();
             (*m_gbuffers->normal_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.normal.x();
             (*m_gbuffers->normal_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.normal.y();
             (*m_gbuffers->normal_buffer)(y, x, ColorBit::R) = m_rasterPoints[i].attrs.normal.z();

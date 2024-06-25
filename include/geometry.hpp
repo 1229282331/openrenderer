@@ -11,7 +11,7 @@
 
 #define MY_PI 3.141592653589793
 #define MY_2PI 6.283185307179586
-
+#define INV_PI 0.31830988618
 
 namespace openrenderer{
 
@@ -22,6 +22,10 @@ union Float32ToUint8
 };
 
 void sampleFromHalfSphere(std::vector<Eigen::Vector3f>& samples, int sample_num=64);
+
+float viewDepth2screenDepth(float view_depth, float zNear, float zFar);
+
+Eigen::Vector3f reflect(Eigen::Vector3f wi, Eigen::Vector3f normal);
 
 Eigen::Matrix4f scale(float rateX, float rateY, float rateZ);
 
@@ -57,6 +61,8 @@ struct Uniform{
     std::vector<Eigen::Vector3f> sampleFromHalfSphere;
     int width;
     int height;
+    float zNear;
+    float zFar;
     float shadowmap_zNear;
     float shadowmap_zFar;
 
@@ -72,10 +78,14 @@ struct Uniform{
     void set_view(Eigen::Matrix4f viewMat) { view = viewMat; }
     void set_projection(float fovy, float aspect, float z_near, float z_far)   
     { 
+        zNear = z_near;
+        zFar = z_far;
         projection = perspective(fovy, aspect, z_near, z_far); 
     }
     void set_orthoProjection(float left, float right, float bottom, float top, float z_near, float z_far)   
     { 
+        zNear = z_near;
+        zFar = z_far;
         projection = ortho(left, right, bottom, top, z_near, z_far); 
     }
     void set_projection(Eigen::Matrix4f projectionMat) { projection = projectionMat; }
@@ -101,6 +111,8 @@ struct Uniform{
     {
         width = width_;
         height = height_;
+        zNear = z_near;
+        zFar = z_far;
         cameraPos = cameraPos_;
         set_models(modelMats);
         set_view(cameraPos_, lookat, up);

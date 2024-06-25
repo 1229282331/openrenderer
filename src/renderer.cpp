@@ -39,6 +39,8 @@ void Render::drawFrame(const Loader& obj_loader)
         printf("[error] pipeline hasn't set!\n");
         return;
     }
+    for(int i=0; i<num_threads; i++)
+            m_pipeline[i]->renderRegion().reset();
     m_framebuffers->clear(BufferType::COLOR|BufferType::DEPTH);
     if(m_isDefferedRender)
         m_gbuffers->clear();
@@ -80,9 +82,8 @@ void Render::drawFrame(const Loader& obj_loader)
                     m_pipeline[thread_id]->generate_shadowmap(obj.id, shadowMap_num);
                 }
             }
-            linkSubFramebuffers(BufferType::DEPTH, shadowMap_num);
         }
-        
+        linkSubFramebuffers(BufferType::DEPTH, shadowMap_num);
         ubo.lights[i].shadowMap = m_framebuffers->depth_buffer[shadowMap_num];
         shadowMap_num++;
     }
@@ -102,7 +103,7 @@ void Render::drawFrame(const Loader& obj_loader)
             int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
             for(int i=0; i<num_threads; i++)
             {
-                m_pipeline[i]->set_state(gbuffer_VertexShader, albedo_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
+                m_pipeline[i]->set_state(gbuffer_VertexShader, texture_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
             #pragma omp parallel for num_threads(use_threads)
             for(int i=0; i<obj.indices.size(); i+=3)
@@ -111,13 +112,15 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
                 m_pipeline[thread_id]->generate_gbuffers(obj.id);
             }
-            linkSubGbuffers();
         }
+        linkSubGbuffers();
     }
     /* simple rendering */
     #pragma omp parallel for num_threads(num_threads)
     for(int i=0; i<num_threads; i++)
+    {
         m_pipeline[i]->framebuffers()->clear(BufferType::COLOR);
+    }
     for(auto& obj : obj_loader.objects)
     {
         int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
@@ -134,8 +137,6 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline[thread_id]->update(obj.vertices[i]);
                 m_pipeline[thread_id]->run(obj.id);
             }
-
-            linkSubFramebuffers();
         }
         else if(m_pipeline[0]->primitiveType()==PrimitiveType::LINE)
         {
@@ -150,7 +151,6 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline[thread_id]->update(obj.vertices[obj.indices[i+2]], obj.vertices[obj.indices[i]], obj.indices[i+2], obj.indices[i]); //line v2v0
                 m_pipeline[thread_id]->run(obj.id);
             }
-            linkSubFramebuffers();
         }
         else if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
         {
@@ -162,9 +162,8 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline[thread_id]->run(obj.id);
             }
         }
-        linkSubFramebuffers(BufferType::COLOR);
     }
-
+    linkSubFramebuffers(BufferType::COLOR);
 }
 
 void Render::linkSubFramebuffers(BufferType type, int buf_id)
@@ -213,6 +212,7 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
                         thread_id = i;
                     }
                 }
+
                 (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::B) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::B);
                 (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::G) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::G);
                 (*m_framebuffers->depth_buffer[buf_id])(y, x, ColorBit::R) = (*m_pipeline[thread_id]->framebuffers()->depth_buffer[buf_id])(y, x, ColorBit::R);
