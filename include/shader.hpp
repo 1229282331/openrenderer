@@ -417,11 +417,11 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
         float ori_depth = -viewPos.z() / viewPos.w();
         float min_scene_depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
         // std::cout << ori_depth << ',' << min_scene_depth << '\n';
-        if(ori_depth > min_scene_depth + 1e-4)
+        if(ori_depth > min_scene_depth + 1e-2)
         {
             hitPos = current_ori;
-            hitPos = Eigen::Vector3f{float(min_scene_depth), float(min_scene_depth), float(min_scene_depth)} / 10.f;
-            std::cout << ori_depth << ',' << min_scene_depth << '\n';
+            // hitPos = Eigen::Vector3f{float(min_scene_depth), float(min_scene_depth), float(min_scene_depth)} / 10.f;
+            // std::cout << ori_depth << ',' << min_scene_depth << '\n';
             return true;
         }
         current_ori += step;
@@ -656,7 +656,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
                                                       (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::G),
                                                       (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::R) };
             // return Eigen::Vector3f{1.f, 1.f, 1.f};
-            return hitPos;
+            // return hitPos;
             return albedo;
         }
         return Eigen::Vector3f{0.f, 0.f, 0.f};

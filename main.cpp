@@ -50,20 +50,20 @@ int main(int argc, char* argv[])
 
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
     std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
-    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), gbuffer_FragmentShader);
+    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), ssr_FragmentShader);
     Texture niucolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
     Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
     Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
     Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
     modelMats[0] = translate({0.f, 1.f, 0.f});
     modelMats[1] = scale(0.15f, 1.f, 0.15f) * translate({0.f, 0.0001f, 0.f});
-    // fragmentShaders[1] = texture_FragmentShader;
+    fragmentShaders[1] = texture_FragmentShader;
 
     /*1. load the .obj*/
     openrenderer::Loader loader;
     loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&niucolorTexture, &floorcolorTexture}, {&niunormalTexture, &floornormalTexture}, modelMats);
     /*2.init scene*/
-    Eigen::Vector3f eyePos(0.f, 8.f, -8.f);
+    Eigen::Vector3f eyePos(0.f, 8.f, 8.f);
     std::vector<Light> lights = {
         {{0.f, 20.f, 20.f}, {500, 500, 500}, false, Eigen::Matrix4f::Identity(), nullptr},
         // {{20.f, 20.f, -20.f}, {100, 100, 100}, false, Eigen::Matrix4f::Identity(), nullptr},

@@ -246,6 +246,8 @@ void Framebuffers::clearZ()
 
 Gbuffers::Gbuffers(int w, int h, PixelFormat format)
 {
+    width = w;
+    height = h;
     position_buffer = std::make_unique<Buffer<float>>(format, w, h);
     normal_buffer = std::make_unique<Buffer<float>>(format, w, h);
     albedo_buffer = std::make_unique<Buffer<float>>(format, w, h);
@@ -273,7 +275,7 @@ void Gbuffers::clear()
     normal_buffer->clear();
     albedo_buffer->clear();
     for(int i=3; i<width*height*4; i+=4)
-        position_buffer->buffer[i] = std::numeric_limits<float>::max();
+        position_buffer->buffer[i] = -std::numeric_limits<float>::max();
 }
 
 
