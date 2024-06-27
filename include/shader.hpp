@@ -62,6 +62,29 @@ inline float depth2Linear(float z, float zNear, float zFar)
 {
     return zNear + (zFar-zNear)*z;
 }
+
+inline float rand1(float& p) 
+{
+    float tmp;
+    p = modff(p * 0.1031f, &tmp);
+    p *= p + 33.33f;
+    p *= p + p;
+    return modff(p, &tmp);
+}
+inline Eigen::Vector2f rand2(float& p)
+{
+    float x1 = rand1(p);
+    float x2 = rand1(p);
+    return { x1, x2 };
+}
+inline float initRand(Eigen::Vector2f uv) 
+{
+    float tmp;
+	Eigen::Vector3f p3  = {modff(uv.x()*0.1031f, &tmp), modff(uv.y()*0.1031f, &tmp), modff(uv.x()*0.1031f, &tmp)};
+    float x = p3.dot(Eigen::Vector3f{p3.y(), p3.z(), p3.x()}+Eigen::Vector3f{33.33f, 33.33f, 33.33f});
+    p3 += Eigen::Vector3f{x, x, x};
+    return modff((p3.x()+p3.y())*p3.z(), &tmp);
+}
 inline float rand_1to1(float x) // return [-1, 1]
 {
     float tmp;
@@ -110,6 +133,7 @@ inline void poissonDiskSamples(const Eigen::Vector2f& randomSeed, int num_rings,
         angle += ANGLE_STEP;
     }
 }
+
 inline float findBlocker(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, float light_size, float bias, int width, int height, int num_samples, int shadowmap_resolution)
 {
     // 1.determine the filter region size according the frustum
@@ -144,7 +168,16 @@ inline float findBlocker(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shado
     average_blockerDepth /= float(count);
     return average_blockerDepth;
 }
-
+inline Eigen::Vector3f sampleHemisphereUniform(float& seed, float& pdf) 
+{
+    Eigen::Vector2f uv = rand2(seed);
+    float z = uv.x();
+    float phi = uv.y() * float(MY_2PI);
+    float sinTheta = sqrt(1.0f - z*z);
+    Eigen::Vector3f dir = Eigen::Vector3f{sinTheta * cos(phi), sinTheta * sin(phi), z};
+    pdf = float(INV_2PI);
+    return dir;
+}
 inline float getShadowBias(float c, int light_id, const Point& input)
 {
     Eigen::Vector3f lightDir = (ubo.lights[light_id].pos - input.v.pos).normalized();
@@ -402,8 +435,8 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
 }
 inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
 {
-    float step_size = 0.01f;
-    int max_search_time = 1000;
+    float step_size = 0.1f;
+    int max_search_time = 30;
 
     Eigen::Vector3f current_ori = ori;
     Eigen::Vector3f step = step_size * dir;
@@ -416,12 +449,9 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
         int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
         float ori_depth = -viewPos.z() / viewPos.w();
         float min_scene_depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
-        // std::cout << ori_depth << ',' << min_scene_depth << '\n';
         if(ori_depth > min_scene_depth + 1e-2)
         {
             hitPos = current_ori;
-            // hitPos = Eigen::Vector3f{float(min_scene_depth), float(min_scene_depth), float(min_scene_depth)} / 10.f;
-            // std::cout << ori_depth << ',' << min_scene_depth << '\n';
             return true;
         }
         current_ori += step;
@@ -624,21 +654,8 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
     return visibility * color;
 }
 
-inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
+inline Eigen::Vector3f mirror_FragmentShader(const Point& input)
 {
-    auto evalDiffuseFunc = [&](Eigen::Vector3f wi, Eigen::Vector3f wo, Eigen::Vector2i screenPos)
-    {   
-        Eigen::Vector3f L;
-        Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
-                                                  (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
-                                                  (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
-        Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
-                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
-                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
-        float cos_a = std::max(0.f, normal.dot(wi));
-        L = (albedo*INV_PI) * cos_a;
-        return L;
-    };
     auto evalReflectedFunc = [&](Eigen::Vector3f wi, Eigen::Vector3f wo, Eigen::Vector2i screenPos)
     {
         Eigen::Vector3f pos = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
@@ -655,8 +672,6 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
             Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::B),
                                                       (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::G),
                                                       (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::R) };
-            // return Eigen::Vector3f{1.f, 1.f, 1.f};
-            // return hitPos;
             return albedo;
         }
         return Eigen::Vector3f{0.f, 0.f, 0.f};
@@ -667,6 +682,61 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
     Eigen::Vector3f wi = (ubo.lights[0].pos-position).normalized();
     Eigen::Vector3f wo = (ubo.cameraPos-position).normalized();
     return evalReflectedFunc(wi, wo, input.screen_pos);
+}
+
+inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
+{
+    float visibility = calVisibility(ubo.lights, input, "pcss");
+    float seed = initRand({(input.attrs.position.x()+1.f)/2.f, (input.attrs.position.y()+1.f)/2.f});
+    auto evalDiffuseFunc = [&](Eigen::Vector3f wi, Eigen::Vector3f wo, Eigen::Vector2i screenPos)
+    {   
+        Eigen::Vector3f L;
+        Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
+                                                  (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
+                                                  (*input.gbuffers->albedo_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
+        Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::B),
+                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::G),
+                                                  (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
+        float cos_a = std::max(0.f, normal.dot(wi));
+        L = (albedo*INV_PI) * cos_a;
+        return L;
+    };
+
+    Eigen::Vector3f position = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
+                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
+                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
+    
+    Eigen::Vector3f L_dir = {0.f, 0.f, 0.f};
+    Eigen::Vector3f L_indir = {0.f, 0.f, 0.f};
+    for(int k=0; k<ubo.lights.size(); k++)
+    {
+        Eigen::Vector3f wi = (ubo.lights[k].pos-position).normalized();
+        Eigen::Vector3f wo = (ubo.cameraPos-position).normalized();
+        float r2_inverse = 1.f / std::pow((ubo.lights[k].pos-position).norm(), 2.f);
+        // direct light
+        Eigen::Vector3f dir_intensity = r2_inverse * ubo.lights[k].intensity;
+        L_dir += visibility * evalDiffuseFunc(wi, wo, input.screen_pos).cwiseProduct(dir_intensity);
+        //indirect light
+        float pdf = 0.f;
+        Eigen::Vector3f subLightPos = {0.f, 0.f, 0.f};
+        for(int i=0; i<NUM_SAMPLES; i++)
+        {
+            Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
+            Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
+            if(rayMarch(position, global_dir, subLightPos, input))
+            {
+                r2_inverse = 1.f / std::pow((ubo.lights[k].pos-subLightPos).norm(), 2.f);
+                Eigen::Vector3f subLight_wi = (ubo.lights[k].pos-subLightPos).normalized();
+                Eigen::Vector2i subLightScreenPos = worldPos2screenPos(subLightPos);
+                Eigen::Vector3f indir_intensity = r2_inverse * ubo.lights[k].intensity;
+                L_indir += (evalDiffuseFunc(global_dir, wo, input.screen_pos)/pdf).cwiseProduct(evalDiffuseFunc(subLight_wi, -global_dir, subLightScreenPos).cwiseProduct(indir_intensity));
+            }
+        }
+    }
+    L_indir /= NUM_SAMPLES;
+    
+
+    return  L_dir + L_indir;
 }
 
 inline Eigen::Vector3f normalMapping_FragmentShader(const Point& input)

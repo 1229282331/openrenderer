@@ -44,7 +44,8 @@ int main(int argc, char* argv[])
 #endif
     // omp_set_num_threads(6);
     omp_set_nested(1);
-    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cube.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
+    bool is_display = true;
+    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
     // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj"};
 
 
@@ -55,18 +56,18 @@ int main(int argc, char* argv[])
     Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
     Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
     Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
-    modelMats[0] = translate({0.f, 1.f, 0.f});
+    // modelMats[0] = translate({0.f, 1.f, 0.f});
     modelMats[1] = scale(0.15f, 1.f, 0.15f) * translate({0.f, 0.0001f, 0.f});
-    fragmentShaders[1] = texture_FragmentShader;
+    // fragmentShaders[1] = texture_FragmentShader;
 
     /*1. load the .obj*/
     openrenderer::Loader loader;
     loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&niucolorTexture, &floorcolorTexture}, {&niunormalTexture, &floornormalTexture}, modelMats);
     /*2.init scene*/
-    Eigen::Vector3f eyePos(0.f, 8.f, 8.f);
+    Eigen::Vector3f eyePos(3.f, 3.f, 3.f);
     std::vector<Light> lights = {
-        {{0.f, 20.f, 20.f}, {500, 500, 500}, false, Eigen::Matrix4f::Identity(), nullptr},
-        // {{20.f, 20.f, -20.f}, {100, 100, 100}, false, Eigen::Matrix4f::Identity(), nullptr},
+        {{0.f, 10.f, 10.f}, {500, 500, 500}, true, Eigen::Matrix4f::Identity(), nullptr},
+        // {{20.f, 20.f, -20.f}, {200, 200, 200}, true, Eigen::Matrix4f::Identity(), nullptr},
     };
     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
     sampleFromHalfSphere(ubo.sampleFromHalfSphere, 10);
@@ -82,23 +83,26 @@ int main(int argc, char* argv[])
     SDL_Event event;
     ControlResult state = ControlResult::CONTROL_NONE;
     Gui::self().control.init(&render, &loader);
-    while(state!=ControlResult::CONTROL_EXIT)
+    if(is_display)
     {
-        SDL_PollEvent(&event);
-        state = Gui::self().control.control(event);
-        render.drawFrame(loader);
-        // depth2gray(*render.framebuffers()->depth_buffer[0]);
-        // Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->depth_buffer[0]->buffer, render.width()*render.framebuffers()->depth_buffer[0]->pbyte);
-        Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
-        Gui::self().titleFPS();
-        
+        while(state!=ControlResult::CONTROL_EXIT)
+        {
+            SDL_PollEvent(&event);
+            state = Gui::self().control.control(event);
+            render.drawFrame(loader);
+            // depth2gray(*render.framebuffers()->depth_buffer[0]);
+            // Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->depth_buffer[0]->buffer, render.width()*render.framebuffers()->depth_buffer[0]->pbyte);
+            Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
+            Gui::self().titleFPS();
+            
+        }
     }
-    // SDL_Delay(2000);
-    // for(int i=0; i<100; i++)
-    // {
-    //     render.drawFrame(loader);
-    //     Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
-    // }
+    else
+    {
+        render.drawFrame(loader);
+        Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
+    }
+
     Gui::self().save_image("../../../result.png", Gui::self().textures[0]);
 
     Gui::self().quit();

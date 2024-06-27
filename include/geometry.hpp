@@ -12,6 +12,7 @@
 #define MY_PI 3.141592653589793
 #define MY_2PI 6.283185307179586
 #define INV_PI 0.31830988618
+#define INV_2PI 0.15915494309
 
 namespace openrenderer{
 
