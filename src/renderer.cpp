@@ -31,22 +31,20 @@ void Render::init_pipeline(PrimitiveType primitive, ShadeFrequency freq,
 
 void Render::drawFrame(const Loader& obj_loader)
 {
-    static auto startTime = clock();
-    auto curTime = clock();
-    float dt = (curTime-startTime)/1000.f;
     if(!m_pipeline)
     {
         printf("[error] pipeline hasn't set!\n");
         return;
     }
     for(int i=0; i<num_threads; i++)
-            m_pipeline[i]->renderRegion().reset();
+        m_pipeline[i]->renderRegion().reset();
     m_framebuffers->clear(BufferType::COLOR|BufferType::DEPTH);
     if(m_isDefferedRender)
         m_gbuffers->clear();
 
     // two-pass rendering
     /* 1.first pass test depth from camera */
+    auto start = std::chrono::high_resolution_clock::now();
     auto cameraPos = ubo.cameraPos;
     int shadowMap_num = 0;
     for(int i=0; i<ubo.lights.size(); i++)
@@ -87,9 +85,12 @@ void Render::drawFrame(const Loader& obj_loader)
         ubo.lights[i].shadowMap = m_framebuffers->depth_buffer[shadowMap_num];
         shadowMap_num++;
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
     /* 2.second pass from camera */
     ubo.init(m_width, m_height, ubo.models, cameraPos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, ubo.lights);
     /* deffered rendering */
+    start = std::chrono::high_resolution_clock::now();
     if(m_isDefferedRender)
     {
         #pragma omp parallel for num_threads(num_threads)
@@ -115,7 +116,10 @@ void Render::drawFrame(const Loader& obj_loader)
         }
         linkSubGbuffers();
     }
+    end = std::chrono::high_resolution_clock::now();
+    t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
     /* simple rendering */
+    start = std::chrono::high_resolution_clock::now();
     #pragma omp parallel for num_threads(num_threads)
     for(int i=0; i<num_threads; i++)
     {
@@ -164,6 +168,8 @@ void Render::drawFrame(const Loader& obj_loader)
         }
     }
     linkSubFramebuffers(BufferType::COLOR);
+    end = std::chrono::high_resolution_clock::now();
+    t2 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;   
 }
 
 void Render::linkSubFramebuffers(BufferType type, int buf_id)

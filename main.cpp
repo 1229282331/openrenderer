@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
     /*4. init renderer*/
     Render render(w, h, true, true, true, PixelFormat::RGB888, PixelFormat::ARGB8888, PixelFormat::ARGB8888);
-    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, phong_FragmentShader);
+    render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     
 
     //main loop
@@ -99,16 +99,19 @@ int main(int argc, char* argv[])
     }
     else
     {
-        render.drawFrame(loader);
-        Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
+        for(int i=0; i<100; i++)
+        {
+            render.drawFrame(loader);
+            Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.width()*render.framebuffers()->color_buffer->pbyte);
+        }
     }
 
     Gui::self().save_image("../../../result.png", Gui::self().textures[0]);
 
     Gui::self().quit();
-    printf("clear() cost %lfms/%.2f%% \n", t0, t0/(t0+t1+t2+t3)*100.f);
-    printf("set_state() cost %lfms/%.2f%% \n", t1, t1/(t0+t1+t2+t3)*100.f);
-    printf("run() cost %lfms/%.2f%% \n", t2, t2/(t0+t1+t2+t3)*100.f);
+    printf("[shadow pass] cost %lfms/%.2f%% \n", t0, t0/(t0+t1+t2+t3)*100.f);
+    printf("[gbuffer pass] cost %lfms/%.2f%% \n", t1, t1/(t0+t1+t2+t3)*100.f);
+    printf("[simple pass] cost %lfms/%.2f%% \n", t2, t2/(t0+t1+t2+t3)*100.f);
     printf("link() cost %lfms/%.2f%% \n", t3, t3/(t0+t1+t2+t3)*100.f);
     printf("rasterize() cost %lfms/%.2f%% \n", t4, t4/(t2)*100.f);
     printf("frame-time: %.2fms \n", (t0+t1+t2+t3)/100.f);

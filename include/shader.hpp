@@ -6,7 +6,7 @@
 
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
-#define NUM_SAMPLES 16
+#define NUM_SAMPLES 2
 
 namespace openrenderer{
 

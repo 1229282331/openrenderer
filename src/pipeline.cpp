@@ -107,7 +107,7 @@ void Pipeline::run(int obj_id)
     /*3.rasterization*/
     rasterization();
     /*4.fragment shader*/
-    #pragma omp parallel for if(m_rasterSize>5000) num_threads(8)
+    #pragma omp parallel for if(m_rasterSize>5000) num_threads(12)
     for(int i=0; i<m_rasterSize; i++) 
     {
         if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].z, 
