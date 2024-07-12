@@ -31,6 +31,8 @@ void Render::init_pipeline(PrimitiveType primitive, ShadeFrequency freq,
 
 void Render::drawFrame(const Loader& obj_loader)
 {
+    auto start = std::chrono::high_resolution_clock::now();
+    auto end = std::chrono::high_resolution_clock::now();
     if(!m_pipeline)
     {
         printf("[error] pipeline hasn't set!\n");
@@ -44,16 +46,19 @@ void Render::drawFrame(const Loader& obj_loader)
 
     // two-pass rendering
     /* 1.first pass test depth from camera */
-    auto start = std::chrono::high_resolution_clock::now();
     auto cameraPos = ubo.cameraPos;
     int shadowMap_num = 0;
+    int firstPass_pipelineNum = 2;
     for(int i=0; i<ubo.lights.size(); i++)
     {
         if(!ubo.lights[i].hasShadowMap)
             continue;
-        #pragma omp parallel for num_threads(num_threads)
-        for(int i=0; i<num_threads; i++)
+        start = std::chrono::high_resolution_clock::now();
+        for(int i=0; i<firstPass_pipelineNum; i++)
             m_pipeline[i]->framebuffers()->clear(BufferType::DEPTH);
+        end = std::chrono::high_resolution_clock::now();
+        t3 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+
         // ubo.init(m_width, m_height, ubo.models, ubo.lights[i].pos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 1000.f, {0.f, -1.f, 1.f}, ubo.lights);
         ubo.cameraPos = ubo.lights[i].pos;
         ubo.shadowmap_zNear = 0.1f;
@@ -62,11 +67,12 @@ void Render::drawFrame(const Loader& obj_loader)
         ubo.set_orthoProjection(-10.f, 10.f, -10.f, 10.f, ubo.shadowmap_zNear, ubo.shadowmap_zFar);
         // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), 0.1f, 100.f);
         ubo.lights[i].lightVP = ubo.projection * ubo.view;
+        start = std::chrono::high_resolution_clock::now();
         for(auto& obj : obj_loader.objects)
         {
-            int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
+            int use_threads = std::clamp(int(obj.indices.size())/3, 1, firstPass_pipelineNum);
 
-            for(int i=0; i<num_threads; i++)
+            for(int i=0; i<firstPass_pipelineNum; i++)
             {
                 m_pipeline[i]->set_state(point_VertexShader, depth_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
@@ -81,28 +87,31 @@ void Render::drawFrame(const Loader& obj_loader)
                 }
             }
         }
-        linkSubFramebuffers(BufferType::DEPTH, shadowMap_num);
+        end = std::chrono::high_resolution_clock::now();
+        t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+        linkSubFramebuffers(firstPass_pipelineNum, BufferType::DEPTH, shadowMap_num);
         ubo.lights[i].shadowMap = m_framebuffers->depth_buffer[shadowMap_num];
         shadowMap_num++;
     }
-    auto end = std::chrono::high_resolution_clock::now();
-    t0 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
     /* 2.second pass from camera */
+    int defferedPass_pipelineNum = 2;
     ubo.init(m_width, m_height, ubo.models, cameraPos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, ubo.lights);
     /* deffered rendering */
-    start = std::chrono::high_resolution_clock::now();
     if(m_isDefferedRender)
     {
-        #pragma omp parallel for num_threads(num_threads)
-        for(int i=0; i<num_threads; i++)
+        start = std::chrono::high_resolution_clock::now();
+        for(int i=0; i<defferedPass_pipelineNum; i++)
         {
             m_pipeline[i]->framebuffers()->clearZ();
-            m_pipeline[i]->gbuffers()->clear();
+            m_pipeline[i]->gbuffers()->position_buffer->clear(0xf1);
         }
+        end = std::chrono::high_resolution_clock::now();
+        t3 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+        start = std::chrono::high_resolution_clock::now();
         for(auto& obj : obj_loader.objects)
         {
-            int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
-            for(int i=0; i<num_threads; i++)
+            int use_threads = std::clamp(int(obj.indices.size())/3, 1, defferedPass_pipelineNum);
+            for(int i=0; i<defferedPass_pipelineNum; i++)
             {
                 m_pipeline[i]->set_state(gbuffer_VertexShader, texture_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
@@ -114,17 +123,19 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline[thread_id]->generate_gbuffers(obj.id);
             }
         }
-        linkSubGbuffers();
+        end = std::chrono::high_resolution_clock::now();
+        t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+        linkSubGbuffers(defferedPass_pipelineNum);
+        ubo.depth_mipmap = new MipMap<float, 8>(*m_gbuffers->position_buffer);
     }
-    end = std::chrono::high_resolution_clock::now();
-    t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
     /* simple rendering */
     start = std::chrono::high_resolution_clock::now();
-    #pragma omp parallel for num_threads(num_threads)
     for(int i=0; i<num_threads; i++)
-    {
         m_pipeline[i]->framebuffers()->clear(BufferType::COLOR);
-    }
+    end = std::chrono::high_resolution_clock::now();
+    t3 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+
+    start = std::chrono::high_resolution_clock::now();
     for(auto& obj : obj_loader.objects)
     {
         int use_threads = std::clamp(int(obj.indices.size())/3, 1, num_threads);
@@ -167,15 +178,15 @@ void Render::drawFrame(const Loader& obj_loader)
             }
         }
     }
-    linkSubFramebuffers(BufferType::COLOR);
     end = std::chrono::high_resolution_clock::now();
-    t2 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;   
+    t2 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
+    linkSubFramebuffers(num_threads, BufferType::COLOR);
 }
 
-void Render::linkSubFramebuffers(BufferType type, int buf_id)
+void Render::linkSubFramebuffers(int use_pipelineNum, BufferType type, int buf_id)
 {
     Region region;
-    for(int i=0; i<num_threads; i++)
+    for(int i=0; i<use_pipelineNum; i++)
         region = region.Union(m_pipeline[i]->renderRegion());
 
     if(type==BufferType::COLOR)
@@ -187,7 +198,7 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
                 float min_z = std::numeric_limits<float>::max();
                 int thread_id = 0;
                 int index = y*m_width+x;
-                for(int i=0; i<num_threads; i++)
+                for(int i=0; i<use_pipelineNum; i++)
                 {
                     if(m_pipeline[i]->framebuffers()->z_buffer[index] < min_z)
                     {
@@ -210,7 +221,7 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
                 int thread_id = 0;
                 int index = y*m_width+x;
                 float min_z = std::numeric_limits<float>::max();
-                for(int i=0; i<num_threads; i++)
+                for(int i=0; i<use_pipelineNum; i++)
                 {
                     if(m_pipeline[i]->framebuffers()->z_buffer[index] < min_z)
                     {
@@ -227,10 +238,10 @@ void Render::linkSubFramebuffers(BufferType type, int buf_id)
     }
 }
 
-void Render::linkSubGbuffers()
+void Render::linkSubGbuffers(int use_pipelineNum)
 {
     Region region;
-    for(int i=0; i<num_threads; i++)
+    for(int i=0; i<use_pipelineNum; i++)
         region = region.Union(m_pipeline[i]->renderRegion());
 
     #pragma omp parallel for num_threads(16)
@@ -240,7 +251,7 @@ void Render::linkSubGbuffers()
             float min_z = std::numeric_limits<float>::max();
             int thread_id = 0;
             int index = y*m_width+x;
-            for(int i=0; i<num_threads; i++)
+            for(int i=0; i<use_pipelineNum; i++)
             {
                 if(m_pipeline[i]->framebuffers()->z_buffer[index] < min_z)
                 {

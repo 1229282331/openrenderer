@@ -16,7 +16,7 @@ namespace openrenderer{
 
 class Render{
 public:
-    Render(int w, int h, bool enable_color=true, bool enable_depth=false, bool enable_defferedRender=false, PixelFormat color_format=PixelFormat::ARGB8888, PixelFormat depth_format=PixelFormat::GRAY8, PixelFormat gbuffer_format=PixelFormat::ARGB8888);
+    Render(int w, int h, bool enable_color=true, bool enable_depth=false, bool enable_defferedRender=false, PixelFormat color_format=PixelFormat::ARGB8888, PixelFormat depth_format=PixelFormat::ARGB8888, PixelFormat gbuffer_format=PixelFormat::ARGB8888);
     ~Render();
 
     void init_pipeline(PrimitiveType primitive, ShadeFrequency freq, std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc);
@@ -32,14 +32,14 @@ private:
     int m_width;
     int m_height;
     int m_isDefferedRender;
-    static const int num_threads = 4;
+    static const int num_threads = 16;
 
     std::unique_ptr<Framebuffers> m_framebuffers;
     std::unique_ptr<Gbuffers> m_gbuffers;
     std::unique_ptr<Pipeline> m_pipeline[num_threads];
 
-    void linkSubFramebuffers(BufferType type=BufferType::COLOR, int buf_id=0);
-    void linkSubGbuffers();
+    void linkSubFramebuffers(int use_pipelineNum, BufferType type=BufferType::COLOR, int buf_id=0);
+    void linkSubGbuffers(int use_pipelineNum);
 
 };
 

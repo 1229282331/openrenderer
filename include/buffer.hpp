@@ -45,7 +45,7 @@ struct Buffer{
                 pbyte = 4;
                 break;
             case PixelFormat::GRAY8:
-                pbyte = 3;
+                pbyte = 1;
             default:
                 pbyte = 3;
                 break;
@@ -65,7 +65,7 @@ struct Buffer{
                 pbyte = 4;
                 break;
             case PixelFormat::GRAY8:
-                pbyte = 3;
+                pbyte = 1;
             default:
                 pbyte = 3;
                 break;
@@ -105,7 +105,30 @@ struct Buffer{
         j = std::clamp(j, 0, width-1);
         buffer[pbyte*(i*width+j)+int(bit)]=value; 
     }
-    void     clear() { memset(buffer, 0, size); }
+    void     clear() { std::memset(buffer, 0, sizeof(T)*size); }
+    void     clear(uint8_t value) { std::memset(buffer, value, sizeof(T)*size); }
+    void     upsample(int rate)
+    {
+        T* old_buf = buffer;
+        int old_width = width;
+        int old_height = height;
+        size *= rate*rate;
+        width *= rate;
+        height *= rate;
+        buffer = new T[size];
+        for(int i=0; i<=height-rate; i+=rate)
+            for(int j=0; j<=width-rate; j+=rate)
+            {
+                for(int k=0; k<pbyte; k++)
+                {
+                    T value = old_buf[pbyte*(i/rate*old_width+j/rate)+k];
+                    for(int p=0; p<rate; p++)
+                        for(int q=0; q<rate; q++)
+                            buffer[pbyte*((i+p)*width+(j+q))+k] = value;
+                }
+            }
+        delete []old_buf;
+    }
 };
 
 inline void depth2gray(Buffer<uint8_t>& depthBuf)

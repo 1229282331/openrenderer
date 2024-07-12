@@ -7,6 +7,7 @@
 #include <random>
 #include <iostream>
 #include "buffer.hpp"
+#include "mipmap.hpp"
 #include "texture.hpp"
 
 #define MY_PI 3.141592653589793
@@ -66,6 +67,7 @@ struct Uniform{
     float zFar;
     float shadowmap_zNear;
     float shadowmap_zFar;
+    MipMap<float, 8>* depth_mipmap=nullptr;
 
     void set_models(std::vector<Eigen::Matrix4f> modelMats) { models = modelMats; }
     void set_model(int index, float alpha, const Eigen::Vector3f& axis, const Eigen::Vector3f& trans) 
@@ -180,7 +182,7 @@ struct Framebuffers{
     float*                  z_buffer = nullptr;
 
 
-    Framebuffers(int w, int h, bool enable_color=true, bool enable_depth=false, PixelFormat color_format=PixelFormat::ARGB8888, PixelFormat depth_format=PixelFormat::GRAY8);
+    Framebuffers(int w, int h, bool enable_color=true, bool enable_depth=false, PixelFormat color_format=PixelFormat::ARGB8888, PixelFormat depth_format=PixelFormat::ARGB8888);
     ~Framebuffers();
     Framebuffers(const Framebuffers& rhs);
     void clear(BufferType type);

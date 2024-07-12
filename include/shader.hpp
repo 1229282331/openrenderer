@@ -6,7 +6,7 @@
 
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
-#define NUM_SAMPLES 2
+#define NUM_SAMPLES 16
 
 namespace openrenderer{
 
@@ -435,8 +435,8 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
 }
 inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
 {
-    float step_size = 0.1f;
-    int max_search_time = 30;
+    float step_size = 0.01f;
+    int max_search_time = 1000;
 
     Eigen::Vector3f current_ori = ori;
     Eigen::Vector3f step = step_size * dir;
@@ -457,6 +457,54 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
         current_ori += step;
     }
 
+    return false;
+}
+inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
+{
+    float step_size = 0.033f;
+    int level = 0;
+    float rate = pow(2.f, float(level));
+    int max_search_time = 16;
+    bool status = false;
+
+    Eigen::Vector3f current_ori = ori;
+    Eigen::Vector3f step = (step_size * rate) * dir;
+    current_ori += step;
+    for(int i=0; i<max_search_time; i++)
+    {
+        Eigen::Vector4f viewPos = ubo.view * Eigen::Vector4f{current_ori.x(), current_ori.y(), current_ori.z(), 1.f};
+        Eigen::Vector4f ndcPos = ubo.projection * viewPos;
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f) / int(rate);
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f) / int(rate);
+        float ori_depth = -viewPos.z() / viewPos.w();
+        float min_scene_depth = -(*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::A);
+        if(ori_depth > min_scene_depth + 1e-2)
+        {
+            level--;
+            rate = pow(2.f, float(level));
+            step = (-step_size * rate) * dir;
+            status = true;
+        }
+        else
+        {
+            level++;
+            level = std::min(level, 8);
+            rate = pow(2.f, float(level));
+            step = (step_size * rate) * dir;
+        }
+        if(level<0)
+        {
+            hitPos = current_ori;
+            return true;
+        }
+        current_ori += step;
+    }
+
+    if(status)
+    {
+        hitPos = current_ori;
+        return true;
+    }
     return false;
 }
 
@@ -514,6 +562,22 @@ inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
     float alb_y = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float alb_z = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
     Eigen::Vector3f alb_color = { alb_x, alb_y, alb_z };
+
+    return pos_color;
+}
+inline Eigen::Vector3f mipmap_FragmentShader(const Point& input)
+{
+    if(!ubo.depth_mipmap)
+        return {0.f, 0.f, 0.f};
+    int level = 3;
+    int x = input.screen_pos.x() / int(pow(2, level));
+    int y = input.screen_pos.y() / int(pow(2, level));
+    float pos_x = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::B);
+    float pos_y = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::G);
+    float pos_z = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::R);
+    Eigen::Vector3f pos_color = { pos_x, pos_y, pos_z };
+    float depth = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::A);
+    Eigen::Vector3f depth_color = -Eigen::Vector3f{ depth, depth, depth } / 10.f;
 
     return depth_color;
 }
@@ -666,7 +730,7 @@ inline Eigen::Vector3f mirror_FragmentShader(const Point& input)
                                                   (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
         Eigen::Vector3f reflect_dir = reflect(wo, normal);
         Eigen::Vector3f hitPos = {0.f, 0.f, 0.f};
-        if(rayMarch(pos, reflect_dir, hitPos, input))
+        if(rayMarchAcc(pos, reflect_dir, hitPos, input))
         {
             Eigen::Vector2i screenHitPos = worldPos2screenPos(hitPos);
             Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::B),
@@ -723,7 +787,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
         {
             Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
             Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
-            if(rayMarch(position, global_dir, subLightPos, input))
+            if(rayMarchAcc(position, global_dir, subLightPos, input))
             {
                 r2_inverse = 1.f / std::pow((ubo.lights[k].pos-subLightPos).norm(), 2.f);
                 Eigen::Vector3f subLight_wi = (ubo.lights[k].pos-subLightPos).normalized();
