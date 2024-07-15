@@ -47,31 +47,57 @@ int main(int argc, char* argv[])
     // omp_set_num_threads(6);
     omp_set_nested(1);
     bool is_display = true;
-    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-    // std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/floor.obj"};
 
-
+    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cube.obj", "C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor_add.obj"};
+    Eigen::Vector3f eyePos(7.f, 7.f, -7.f);
+    std::vector<Light> lights = {
+        {{0.f, 10.f, 10.f}, {150, 150, 150}, true, Eigen::Matrix4f::Identity(), nullptr},
+        // {{0.f, -20.f, -20.f}, {500,500, 500}, false, Eigen::Matrix4f::Identity(), nullptr},
+    };
     std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
     std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
     std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), phong_FragmentShader);
+    Texture lightcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
+    Texture lightnormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
     Texture niucolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
     Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
     Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
     Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
-    // modelMats[0] = translate({0.f, 1.f, 0.f});
-    modelMats[1] = scale(0.15f, 1.f, 0.15f) * translate({0.f, 0.0001f, 0.f});
-    // fragmentShaders[1] = texture_FragmentShader;
+    modelMats[0] = translate(lights[0].pos) * scale(0.1f, 0.1f, 0.1f);
+    modelMats[2] = scale(0.15f, 1.f, 0.15f) * translate({0.f, 0.0001f, 0.f});
+    fragmentShaders[0] = point_FragmentShader;
+
+    // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cornellbox/light.obj", 
+    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/floor.obj",
+    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/left.obj",
+    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/right.obj",};
+    // Eigen::Vector3f eyePos(0.f, 0.f, -7.f);
+    // std::vector<Light> lights = {
+    //     {{228.f, 548.f, 229.5f}, {150, 150, 150}, false, Eigen::Matrix4f::Identity(), nullptr},
+    //     // {{0.f, -20.f, -20.f}, {500,500, 500}, false, Eigen::Matrix4f::Identity(), nullptr},
+    // };
+    // std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
+    // std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
+    // std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), point_FragmentShader);
+    // Texture lightcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
+    // Texture lightnormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
+    // Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
+    // Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
+    // for(int i=0; i<obj_paths.size(); i++)
+    //     modelMats[i] = scale(0.01f, 0.01f, 0.01f);
+    // modelMats[0] = translate({0.f, -0.01f, 0.f}) * modelMats[0];
+    // fragmentShaders[0] = point_FragmentShader;
+    // fragmentShaders[1] = floor_FragmentShader;
+    // fragmentShaders[2] = left_FragmentShader;
+    // fragmentShaders[3] = right_FragmentShader;
 
     /*1. load the .obj*/
     openrenderer::Loader loader;
-    loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&niucolorTexture, &floorcolorTexture}, {&niunormalTexture, &floornormalTexture}, modelMats);
+    loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&lightcolorTexture, &niucolorTexture, &floorcolorTexture}, {&lightnormalTexture, &niunormalTexture, &floornormalTexture}, modelMats);
+    // loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&lightcolorTexture, &floorcolorTexture}, {&lightnormalTexture, &floornormalTexture}, modelMats);
     /*2.init scene*/
-    Eigen::Vector3f eyePos(7.f, 7.f, 7.f);
-    std::vector<Light> lights = {
-        {{0.f, 10.f, 10.f}, {500, 500, 500}, true, Eigen::Matrix4f::Identity(), nullptr},
-        // {{20.f, 20.f, -20.f}, {200, 200, 200}, true, Eigen::Matrix4f::Identity(), nullptr},
-    };
     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
+    loader.objects[0].light = &ubo.lights[0];
     sampleFromHalfSphere(ubo.sampleFromHalfSphere, 10);
     /*3. init SDL*/
     Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
@@ -91,11 +117,14 @@ int main(int argc, char* argv[])
         {
             SDL_PollEvent(&event);
             state = Gui::self().control.control(event);
-            render.drawFrame(loader);
-            // depth2gray(*render.framebuffers()->depth_buffer[0]);
-            // Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->depth_buffer[0]->buffer, render.width()*render.framebuffers()->depth_buffer[0]->pbyte);
-            Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.framebuffers()->color_buffer->width*render.framebuffers()->color_buffer->pbyte);
-            Gui::self().titleFPS();
+            if(state!=ControlResult::CONTROL_KEYDOWN)
+            {
+                render.drawFrame(loader);
+                // depth2gray(*render.framebuffers()->depth_buffer[0]);
+                // Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->depth_buffer[0]->buffer, render.width()*render.framebuffers()->depth_buffer[0]->pbyte);
+                Gui::self().render_present(Gui::self().textures[0], (void*)render.framebuffers()->color_buffer->buffer, render.framebuffers()->color_buffer->width*render.framebuffers()->color_buffer->pbyte);
+                Gui::self().titleFPS();
+            }
             
         }
     }

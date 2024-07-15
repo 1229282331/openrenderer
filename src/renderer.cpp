@@ -48,7 +48,7 @@ void Render::drawFrame(const Loader& obj_loader)
     /* 1.first pass test depth from camera */
     auto cameraPos = ubo.cameraPos;
     int shadowMap_num = 0;
-    int firstPass_pipelineNum = 2;
+    int firstPass_pipelineNum = std::min(2, num_threads);
     for(int i=0; i<ubo.lights.size(); i++)
     {
         if(!ubo.lights[i].hasShadowMap)
@@ -94,7 +94,7 @@ void Render::drawFrame(const Loader& obj_loader)
         shadowMap_num++;
     }
     /* 2.second pass from camera */
-    int defferedPass_pipelineNum = 2;
+    int defferedPass_pipelineNum = std::min(2, num_threads);
     ubo.init(m_width, m_height, ubo.models, cameraPos, float(m_width)/float(m_height), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, ubo.lights);
     /* deffered rendering */
     if(m_isDefferedRender)

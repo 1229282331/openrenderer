@@ -19,15 +19,20 @@ enum class ControlResult{
     CONTROL_MOUSEMOTION,
     CONTROL_MOUSEBUTTONDOWN,
     CONTROL_MOUSEBUTTONUP,
+    CONTROL_MOUSEWHEEL,
+    CONTROL_KEYDOWN,
+    CONTROL_KEYUP
 };
 
 class GuiControl{
 public:
-    GuiControl() : m_event({}), m_mousePosX(0), m_mousePosY(0), m_mouseWorldPos(Eigen::Vector3f::Zero()), m_id(0), m_isTranslate(false), m_isRotate(false),  
-                    m_oldPos(Eigen::Vector3f::Zero()), m_newPos(Eigen::Vector3f::Zero()), m_render(nullptr), m_loader(nullptr) {  }
+    GuiControl() : m_event({}), m_mousePosX(0), m_mousePosY(0), m_mouseWorldPos(Eigen::Vector3f::Zero()), 
+                    m_id(0), m_isTranslate(false), m_isRotate(false), m_isOBJ(false),  
+                    m_oldPos(Eigen::Vector3f::Zero()), m_newPos(Eigen::Vector3f::Zero()), m_render(nullptr), m_loader(nullptr) { }
     ~GuiControl() { m_render=nullptr;m_loader=nullptr; }
     void init(Render* render, Loader* loader);
     ControlResult control(const SDL_Event& event);
+
 
 
 private:
@@ -38,6 +43,7 @@ private:
     int m_id;
     bool m_isTranslate;
     bool m_isRotate;
+    bool m_isOBJ;
     Eigen::Vector3f m_oldPos;
     Eigen::Vector3f m_newPos;
     

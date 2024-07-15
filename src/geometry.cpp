@@ -91,9 +91,16 @@ Eigen::Matrix4f translate(const Eigen::Vector3f& v)
 
 Eigen::Matrix4f lookAt(const Eigen::Vector3f& eyePos, const Eigen::Vector3f& center, const Eigen::Vector3f& up)
 {
-    Eigen::Vector3f const f((center - eyePos).normalized());
-    Eigen::Vector3f const s((f.cross(up)).normalized());
-    Eigen::Vector3f const u((s.cross(f)));
+    Eigen::Vector3f f((center - eyePos).normalized());
+    Eigen::Vector3f s((f.cross(up)).normalized());
+    if(s.isZero())
+    {
+        Eigen::Vector3f new_up = Eigen::Vector3f{abs(f.x())<0.999f ? 1.f : 0.f,
+                                                abs(f.y())<0.999f ? 1.f : 0.f,
+                                                0.f};
+        s = (f.cross(new_up)).normalized();
+    }
+    Eigen::Vector3f u((s.cross(f)));
 
     Eigen::Matrix4f Result = Eigen::Matrix4f::Identity();
     Result(0, 0) = s[0];

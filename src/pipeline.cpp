@@ -94,7 +94,9 @@ void Pipeline::run(int obj_id)
         gl_Position[i] = vertex_shader(input, out_attr);
         // viewport transform
         int width = m_framebuffers->width, height = m_framebuffers->height;
-        gl_Position[i].w() = std::abs(gl_Position[i].w()); 
+        if(gl_Position[i].w()<0.f)  //remove out of the camera NDC-space triangle mesh
+            return;
+        // gl_Position[i].w() = std::abs(gl_Position[i].w()); 
         int x = int((gl_Position[i].x()/gl_Position[i].w()+1.f)*width/2.f);
         int y = int((gl_Position[i].y()/gl_Position[i].w()+1.f)*height/2.f);
         m_primitive[i].screen_pos = {x, y};

@@ -155,62 +155,125 @@ void GuiControl::init(Render* render, Loader* loader)
 
 ControlResult GuiControl::control(const SDL_Event& event)
 {
+    // const Uint8* keystates = SDL_GetKeyboardState(nullptr);
     if(event.type==SDL_QUIT)    
         return ControlResult::CONTROL_EXIT;
-    else if(event.type==SDL_MOUSEMOTION || event.type==SDL_MOUSEBUTTONDOWN || event.type==SDL_MOUSEBUTTONUP) 
+    else if(event.type==SDL_MOUSEMOTION || event.type==SDL_MOUSEBUTTONDOWN || event.type==SDL_MOUSEBUTTONUP || event.type==SDL_MOUSEWHEEL) 
     {
-        SDL_GetMouseState(&m_mousePosX, &m_mousePosY);
+        int mousePosX, mousePosY;
+        SDL_GetMouseState(&mousePosX, &mousePosY);
         switch (event.type)
         {
             case SDL_MOUSEMOTION:		// 鼠标移动
                 // std::cout << "[Mouse move]: ( " << mousePosX << ", " << mousePosY << " )" << std::endl;
                 if(m_isTranslate)
                 {
-                    // move the picked object
-                    m_newPos = inverse2Dto3D(m_mousePosX, m_render->height()-m_mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                    Eigen::Vector3f translateVec = m_newPos - m_oldPos;
-                    ubo.move_model(m_id, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
-                    m_loader->objects[m_id].bounding_box.p_min += translateVec;
-                    m_loader->objects[m_id].bounding_box.p_max += translateVec;
-                    m_oldPos = m_newPos;
+                    if(m_isOBJ)
+                    {
+                        // move the picked object
+                        m_newPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        Eigen::Vector3f translateVec = m_newPos - m_oldPos;
+                        if(m_loader->objects[m_id].light)
+                            m_loader->objects[m_id].light->pos += translateVec;
+                        ubo.move_model(m_id, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
+                        m_loader->objects[m_id].bounding_box.p_min += translateVec;
+                        m_loader->objects[m_id].bounding_box.p_max += translateVec;
+                        m_oldPos = m_newPos;
+                    }
+                    else
+                    {
+                        // move the scene
+                        m_newPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        Eigen::Vector3f translateVec = m_newPos - m_oldPos;
+                        for(int i=0; i<m_loader->objects.size(); i++)
+                        {
+                            ubo.move_model(i, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
+                            m_loader->objects[i].bounding_box.p_min += translateVec;
+                            m_loader->objects[i].bounding_box.p_max += translateVec;
+                        }
+                        m_oldPos = m_newPos;
+                    }
                 }
                 else if(m_isRotate)
                 {
-                    // rotate the picked object
-                    m_newPos = inverse2Dto3D(m_mousePosX, m_render->height()-m_mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                    Eigen::Vector3f rotateVec = m_newPos - m_oldPos;
-                    Eigen::Vector3f axis = rotateVec.cross(Eigen::Vector3f(0.f, 0.f, 1.f)).normalized();
-                    float angle = 360.f * 0.5f * (abs(rotateVec.x())/abs(m_loader->objects[m_id].bounding_box.p_max.x()-m_loader->objects[m_id].bounding_box.p_min.x()) + abs(rotateVec.y())/abs(m_loader->objects[m_id].bounding_box.p_max.y()-m_loader->objects[m_id].bounding_box.p_min.y()));
-                    ubo.move_model(m_id, angle, axis, Eigen::Vector3f::Zero());
-                    m_oldPos = m_newPos;
+                    if(m_isOBJ)
+                    {
+                        // rotate the picked object
+                        m_newPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        Eigen::Vector3f rotateVec = m_newPos - m_oldPos;
+                        Eigen::Vector3f axis = rotateVec.cross(Eigen::Vector3f(0.f, 0.f, 1.f)).normalized();
+                        float angle = (ubo.cameraPos.z()<0.f?1.f:-1.f) * 360.f * 0.5f * (abs(rotateVec.x())/abs(m_loader->objects[m_id].bounding_box.p_max.x()-m_loader->objects[m_id].bounding_box.p_min.x()) + abs(rotateVec.y())/abs(m_loader->objects[m_id].bounding_box.p_max.y()-m_loader->objects[m_id].bounding_box.p_min.y()));
+                        ubo.move_model(m_id, angle, axis, Eigen::Vector3f::Zero());
+                        m_oldPos = m_newPos;
+                    }
+                    else
+                    {
+                        // rotate the scene
+                        float r2 = pow(ubo.cameraPos.norm(), 2.f);
+                        int delta_x = mousePosX - m_mousePosX;
+                        int delta_y = mousePosY - m_mousePosY;
+                        m_mousePosX = mousePosX;
+                        m_mousePosY = mousePosY;
+                        float theta = -float(delta_x)/float(m_render->width()) * 2.f * float(M_PI);
+                        float phi = (ubo.cameraPos.z()<0.f?1.f:-1.f) * float(delta_y)/float(m_render->height()) * float(M_PI);
+                        Eigen::Matrix4f rotateMat = rotate(theta, {0.f, 1.f, 0.f}) * rotate(phi, {1.f, 0.f, 0.f});
+                        Eigen::Vector4f cameraPos = rotateMat * Eigen::Vector4f{ubo.cameraPos.x(), ubo.cameraPos.y(), ubo.cameraPos.z(), 1.f};
+                        float cos_a = Eigen::Vector3f{cameraPos.x(), cameraPos.y(), cameraPos.z()}.normalized().dot(Eigen::Vector3f{0.f, 1.f, 0.f});
+                        if(cos_a>0.98f || cos_a<-0.95f || abs(phi)>float(M_PI)/6.f)
+                            return ControlResult::CONTROL_NONE;
+                        ubo.cameraPos.x() = cameraPos.x();
+                        ubo.cameraPos.y() = cameraPos.y();
+                        ubo.cameraPos.z() = cameraPos.z();
+                        ubo.set_view(ubo.cameraPos, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
+                    }
                 }
                 return ControlResult::CONTROL_MOUSEMOTION;
-            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONDOWN:   //鼠标按键按下
                 if (event.button.button == SDL_BUTTON_LEFT)
                 {
-                    m_mouseWorldPos = inverse2Dto3D(m_mousePosX, m_render->height()-m_mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                    for(int i=0; i<m_loader->objects.size(); i++)
-                        if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
-                        {
-                            m_id = i;
-                            m_isTranslate = true;
-                            m_oldPos = inverse2Dto3D(m_mousePosX, m_render->height()-m_mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                            std::cout << "[Mouse Button Down]: choose the obj to translate." << std::endl;
-                            break;
-                        }
+                    if(m_isOBJ)
+                    {
+                        m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        for(int i=0; i<m_loader->objects.size(); i++)
+                            if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
+                            {
+                                m_id = i;
+                                m_isTranslate = true;
+                                m_oldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                                std::cout << "[Mouse Button Down]: choose the obj to translate." << std::endl;
+                                break;
+                            }
+                    }
+                    else
+                    {
+                        m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        m_isTranslate = true;
+                        m_oldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        std::cout << "[Mouse Button Down]: choose the scene to translate." << std::endl;
+                    }
                 }
                 else if (event.button.button == SDL_BUTTON_RIGHT)
                 {
-                    m_mouseWorldPos = inverse2Dto3D(m_mousePosX, m_render->height()-m_mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                    for(int i=0; i<m_loader->objects.size(); i++)
-                        if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
-                        {
-                            m_id = i;
-                            m_isRotate = true;                            
-                            m_oldPos = inverse2Dto3D(m_mousePosX, m_render->height()-m_mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                            std::cout << "[Mouse Button Down]: choose the obj to rotate." << std::endl;
-                            break;
-                        }
+                    if(m_isOBJ)
+                    {
+                        m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                        for(int i=0; i<m_loader->objects.size(); i++)
+                            if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
+                            {
+                                m_id = i;
+                                m_isRotate = true;                            
+                                m_oldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                                std::cout << "[Mouse Button Down]: choose the obj to rotate." << std::endl;
+                                break;
+                            }
+                    }
+                    else
+                    {
+                        m_mousePosX = mousePosX;
+                        m_mousePosY = mousePosY;
+                        m_isRotate = true;
+                        std::cout << "[Mouse Button Down]: choose the scene to rotate." << std::endl;
+                    }
                 }
                 return ControlResult::CONTROL_MOUSEBUTTONDOWN;
             case SDL_MOUSEBUTTONUP:		// 鼠标按键松开
@@ -231,9 +294,66 @@ ControlResult GuiControl::control(const SDL_Event& event)
                     }
                 }
                 return ControlResult::CONTROL_MOUSEBUTTONUP;
+            case SDL_MOUSEWHEEL:    //鼠标滚轮滚动
+                if(m_isTranslate)
+                {
+                    int mouseWheelY = event.wheel.y;
+                    if(m_isOBJ)
+                    {
+                        // move the picked object for z-axis
+                        Eigen::Vector3f translateVec = Eigen::Vector3f{0.f, 0.f, 0.1f * float(mouseWheelY)};
+                        ubo.move_model(m_id, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
+                        m_loader->objects[m_id].bounding_box.p_min += translateVec;
+                        m_loader->objects[m_id].bounding_box.p_max += translateVec;
+                    }
+                }
+                else
+                {
+                    int mouseWheelY = event.wheel.y;
+                    if(!m_isOBJ)
+                    {
+                        // move the whole scene for z-axis
+                        ubo.cameraPos += -0.1f * float(mouseWheelY)*ubo.cameraPos;
+                        ubo.set_view(ubo.cameraPos, Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f));
+                    }
+                }
+                return ControlResult::CONTROL_MOUSEWHEEL;
             default:
                 return ControlResult::CONTROL_NONE;
         }
+    }
+    else if(event.type==SDL_KEYDOWN || event.type==SDL_KEYUP) 
+    {
+        if(event.type==SDL_KEYDOWN)
+        {
+            switch (event.key.keysym.sym)
+            {
+            case SDLK_LALT:
+                m_isOBJ = true;
+                return ControlResult::CONTROL_KEYDOWN;
+            case SDLK_RALT:
+                m_isOBJ = true;
+                return ControlResult::CONTROL_KEYDOWN;
+            default:
+                return ControlResult::CONTROL_NONE;
+            }
+        }
+        else if(event.type==SDL_KEYUP)
+        {
+            switch (event.key.keysym.sym)
+            {
+            case SDLK_LALT:
+                m_isOBJ = false;
+                return ControlResult::CONTROL_KEYDOWN;
+            case SDLK_RALT:
+                m_isOBJ = false;
+                return ControlResult::CONTROL_KEYDOWN;
+            default:
+                return ControlResult::CONTROL_NONE;
+            }
+        }
+        else
+            return ControlResult::CONTROL_NONE;
     }
     else
         return ControlResult::CONTROL_NONE;

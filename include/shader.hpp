@@ -194,7 +194,7 @@ inline float isVisible(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowC
     value.arr[3] = shadowMap->get(y, x, ColorBit::A);
     float lightPass_depth = value.num;
     float cameraPass_depth = shadowCoord.z() / shadowCoord.w();
-    if(lightPass_depth < cameraPass_depth - bias - EPS)
+    if(lightPass_depth>0.f && lightPass_depth < cameraPass_depth - bias - EPS)  // front of the light
         return 0.f;
     return 1.f;
 }
@@ -217,6 +217,8 @@ inline float PCF(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, 
     value.arr[3] = shadowMap->get(y, x, ColorBit::A);
     float lightPass_depth = value.num;
     float cameraPass_depth = shadowCoord.z();
+    if(lightPass_depth <= 0.f)  // back of the light
+        return 1.f;
     if(lightPass_depth >= cameraPass_depth - bias - EPS)
         count += weight;
 
@@ -328,7 +330,7 @@ inline float PCSS(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord,
     float light_size = 10.f;
     // STEP 1: avgblocker depth
     float blocker_depth = findBlocker(shadowMap, shadowCoord, light_size, bias, width, height, num_samples, shadowmap_resolution);
-    if(blocker_depth > 1.0-EPS) return 1.0f;
+    if(blocker_depth > 1.0-EPS || blocker_depth<=0.f) return 1.0f;  // back of the light
     else if(blocker_depth < EPS) return 0.f;
 
     // STEP 2: penumbra size
@@ -508,11 +510,22 @@ inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3
     return false;
 }
 
+inline Eigen::Vector3f floor_FragmentShader(const Point& input)
+{
+    return Eigen::Vector3f{ 1.f, 1.f, 1.f };
+}
+inline Eigen::Vector3f left_FragmentShader(const Point& input)
+{
+    return Eigen::Vector3f{ 1.f, 0.f, 0.f };
+}
+inline Eigen::Vector3f right_FragmentShader(const Point& input)
+{
+    return Eigen::Vector3f{ 0.f, 1.f, 0.f };
+}
 
 inline Eigen::Vector3f point_FragmentShader(const Point& input)
 {
-    float visibility = calVisibility(ubo.lights, input, "pcss");
-    return visibility * Eigen::Vector3f{ 0.5f, 0.5f, 0.5f };
+    return Eigen::Vector3f{ 0.f, 1.f, 1.f };
 }
 
 inline Eigen::Vector3f triangle_FragmentShader(const Point& input)

@@ -38,6 +38,7 @@ struct Box{
 
 struct Object{
     int id;
+    Light* light = nullptr;
     Box bounding_box;
     std::vector<Vertex> vertices;    
     std::vector<int> indices;
