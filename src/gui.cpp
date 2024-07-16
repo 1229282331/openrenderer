@@ -185,6 +185,11 @@ ControlResult GuiControl::control(const SDL_Event& event)
                         // move the scene
                         m_newPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
                         Eigen::Vector3f translateVec = m_newPos - m_oldPos;
+                        for(int j=0; j<ubo.lights.size(); j++)
+                        {
+                            ubo.lights[j].pos += translateVec;
+                            ubo.lookatPoint += translateVec;
+                        }
                         for(int i=0; i<m_loader->objects.size(); i++)
                         {
                             ubo.move_model(i, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
@@ -224,7 +229,6 @@ ControlResult GuiControl::control(const SDL_Event& event)
                         ubo.cameraPos.x() = cameraPos.x();
                         ubo.cameraPos.y() = cameraPos.y();
                         ubo.cameraPos.z() = cameraPos.z();
-                        ubo.set_view(ubo.cameraPos, {0.f, 0.f, 0.f}, {0.f, 1.f, 0.f});
                     }
                 }
                 return ControlResult::CONTROL_MOUSEMOTION;
@@ -246,6 +250,8 @@ ControlResult GuiControl::control(const SDL_Event& event)
                     }
                     else
                     {
+                        m_mousePosX = mousePosX;
+                        m_mousePosY = mousePosY;
                         m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
                         m_isTranslate = true;
                         m_oldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);

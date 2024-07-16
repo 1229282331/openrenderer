@@ -58,6 +58,7 @@ struct Uniform{
     Eigen::Matrix4f view;
     Eigen::Matrix4f projection;
     Eigen::Vector3f cameraPos;
+    Eigen::Vector3f lookatPoint = Eigen::Vector3f::Zero();
     Eigen::Vector3f lightDir;
     std::vector<Light> lights;
     std::vector<Eigen::Vector3f> sampleFromHalfSphere;
@@ -149,7 +150,8 @@ struct vertex_shader_in{
 struct vertex_shader_out{
     Eigen::Vector3f normal;
     Eigen::Matrix3f TBN;
-    Eigen::Vector3f position;
+    Eigen::Vector3f ndcPos;
+    Eigen::Vector3f modelPos;
 };
 
 struct Gbuffers;

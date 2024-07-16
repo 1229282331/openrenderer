@@ -58,6 +58,11 @@ public:
                     std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
                     std::vector<Texture*> pcolorTextures, std::vector<Texture*> pnormalTextures,
                     const std::vector<Eigen::Matrix4f>& modelMats=std::vector<Eigen::Matrix4f>());
+    bool load_obj(const std::vector<std::string>& obj_paths, 
+                std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
+                std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
+                std::vector<Eigen::Vector3f> obj_colors, std::vector<Texture*> pnormalTextures,
+                const std::vector<Eigen::Matrix4f>& modelMats);
 
     std::vector<Object> objects;
     std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders;

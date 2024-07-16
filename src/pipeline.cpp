@@ -178,7 +178,7 @@ void Pipeline::generate_gbuffers(int obj_id)
 
             float Z = correction(bc, gl_Position);
             m_rasterPoints[num].screen_pos = {x, y};
-            m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
+            m_rasterPoints[num].attrs.modelPos = bc.x()*m_primitive[0].attrs.modelPos + bc.y()*m_primitive[1].attrs.modelPos + bc.z()*m_primitive[2].attrs.modelPos;
             m_rasterPoints[num].z = Z;
             m_rasterPoints[num].v.pos.z() = (bc.x()*m_primitive[0].z + bc.y()*m_primitive[1].z + bc.z()*m_primitive[2].z);  // save the ndc-space depth
             m_rasterPoints[num].v.color = (bc.x()*m_primitive[0].v.color + bc.y()*m_primitive[1].v.color + bc.z()*m_primitive[2].v.color);
@@ -188,7 +188,7 @@ void Pipeline::generate_gbuffers(int obj_id)
             m_rasterPoints[num].v.texCoord.y() = std::clamp(m_rasterPoints[num].v.texCoord.y(), 0.f, 1.f);
             m_rasterPoints[num].attrs.normal = (bc.x()*m_primitive[0].attrs.normal + bc.y()*m_primitive[1].attrs.normal + bc.z()*m_primitive[2].attrs.normal);
             m_rasterPoints[num].attrs.TBN = bc.x()*m_primitive[0].attrs.TBN + bc.y()*m_primitive[1].attrs.TBN + bc.z()*m_primitive[2].attrs.TBN;
-            m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
+            m_rasterPoints[num].attrs.ndcPos = bc.x()*m_primitive[0].attrs.ndcPos + bc.y()*m_primitive[1].attrs.ndcPos + bc.z()*m_primitive[2].attrs.ndcPos;
             num++;
             if(num > m_maxRasterSize) 
                 break;
@@ -209,10 +209,10 @@ void Pipeline::generate_gbuffers(int obj_id)
             int x = m_rasterPoints[i].screen_pos.x();
             int y = m_rasterPoints[i].screen_pos.y();
             Eigen::Vector3f color = fragment_shader(m_rasterPoints[i]);
-            Eigen::Vector4f viewPos = ubo.view * Eigen::Vector4f{m_rasterPoints[i].attrs.position.x(), m_rasterPoints[i].attrs.position.y(), m_rasterPoints[i].attrs.position.z(), 1.f};
-            (*m_gbuffers->position_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.position.x();
-            (*m_gbuffers->position_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.position.y();
-            (*m_gbuffers->position_buffer)(y, x, ColorBit::R) = m_rasterPoints[i].attrs.position.z();
+            Eigen::Vector4f viewPos = ubo.view * Eigen::Vector4f{m_rasterPoints[i].attrs.modelPos.x(), m_rasterPoints[i].attrs.modelPos.y(), m_rasterPoints[i].attrs.modelPos.z(), 1.f};
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.modelPos.x();
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.modelPos.y();
+            (*m_gbuffers->position_buffer)(y, x, ColorBit::R) = m_rasterPoints[i].attrs.modelPos.z();
             (*m_gbuffers->position_buffer)(y, x, ColorBit::A) = viewPos.z();
             (*m_gbuffers->normal_buffer)(y, x, ColorBit::B) = m_rasterPoints[i].attrs.normal.x();
             (*m_gbuffers->normal_buffer)(y, x, ColorBit::G) = m_rasterPoints[i].attrs.normal.y();
@@ -262,7 +262,7 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
 
             float Z = correction(bc, gl_Position);
             m_rasterPoints[num].screen_pos = {x, y};
-            m_rasterPoints[num].attrs.position = bc.x()*m_primitive[0].attrs.position + bc.y()*m_primitive[1].attrs.position + bc.z()*m_primitive[2].attrs.position;
+            m_rasterPoints[num].attrs.ndcPos = bc.x()*m_primitive[0].attrs.ndcPos + bc.y()*m_primitive[1].attrs.ndcPos + bc.z()*m_primitive[2].attrs.ndcPos;
             num++;
             if(num > m_maxRasterSize) 
                 break;
@@ -275,13 +275,13 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
     #pragma omp parallel for if(m_rasterSize>10000) num_threads(3)
     for(int i=0; i<m_rasterSize; i++) 
     {
-        if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.position.z(), 
+        if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.ndcPos.z(), 
                 m_framebuffers->width, m_framebuffers->height, m_framebuffers->z_buffer))
         {
             int x = m_rasterPoints[i].screen_pos.x();
             int y = m_rasterPoints[i].screen_pos.y();
             Float32ToUint8 value;
-            value.num = m_rasterPoints[i].attrs.position.z();
+            value.num = m_rasterPoints[i].attrs.ndcPos.z();
             (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::B) = value.arr[0];
             (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::G) = value.arr[1];
             (*m_framebuffers->depth_buffer[shadowmap_id])(y, x, ColorBit::R) = value.arr[2];
@@ -432,7 +432,7 @@ bool test_depth(int x, int y, float z, int width, int height, float* z_buffer)
 {
     int index = y * width + x;
     bool is_shade = false;
-    if(z < z_buffer[index] - 1e-4)
+    if(z>0.f && z < z_buffer[index] - 1e-4)
     {
         z_buffer[index] = z;
         is_shade = true;
@@ -458,7 +458,8 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
         Eigen::Vector3f afterFaceNormal = (input[0].attrs.normal+input[1].attrs.normal+input[2].attrs.normal);
         Eigen::Vector2f faceTexCoord = 0.333f*(input[0].v.texCoord+input[1].v.texCoord+input[2].v.texCoord);
         Eigen::Matrix3f faceTBN = 0.333f*(input[0].attrs.TBN+input[1].attrs.TBN+input[2].attrs.TBN);
-        Eigen::Vector3f facePosition = 0.333f*(input[0].attrs.position+input[1].attrs.position+input[2].attrs.position);
+        Eigen::Vector3f faceNDCPosition = 0.333f*(input[0].attrs.ndcPos+input[1].attrs.ndcPos+input[2].attrs.ndcPos);
+        Eigen::Vector3f faceModelPosition = 0.333f*(input[0].attrs.modelPos+input[1].attrs.modelPos+input[2].attrs.modelPos);
         Eigen::Vector3f faceWorldPosition = 0.333f*(input[0].v.pos+input[1].v.pos+input[2].v.pos);
         Eigen::Vector3f faceColor = 0.333f*(input[0].v.color+input[1].v.color+input[2].v.color);
         for(int x=box_min.x(); x<=box_max.x(); x++)
@@ -477,7 +478,8 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
                 raster_region[num].v.texCoord = faceTexCoord;
                 raster_region[num].attrs.normal = afterFaceNormal;
                 raster_region[num].attrs.TBN = faceTBN;
-                raster_region[num].attrs.position = facePosition;
+                raster_region[num].attrs.ndcPos = faceNDCPosition;
+                raster_region[num].attrs.modelPos = faceModelPosition;
                 num++; 
                 if(num > max_size) 
                 {
@@ -506,7 +508,8 @@ int triangle(const Point* input, const Eigen::Vector4f* gl_Position, Point* rast
                 raster_region[num].v.texCoord.y() = std::clamp(raster_region[num].v.texCoord.y(), 0.f, 1.f);
                 raster_region[num].attrs.normal = (bc.x()*input[0].attrs.normal + bc.y()*input[1].attrs.normal + bc.z()*input[2].attrs.normal);
                 raster_region[num].attrs.TBN = bc.x()*input[0].attrs.TBN + bc.y()*input[1].attrs.TBN + bc.z()*input[2].attrs.TBN;
-                raster_region[num].attrs.position = bc.x()*input[0].attrs.position + bc.y()*input[1].attrs.position + bc.z()*input[2].attrs.position;
+                raster_region[num].attrs.ndcPos = bc.x()*input[0].attrs.ndcPos + bc.y()*input[1].attrs.ndcPos + bc.z()*input[2].attrs.ndcPos;
+                raster_region[num].attrs.modelPos = bc.x()*input[0].attrs.modelPos + bc.y()*input[1].attrs.modelPos + bc.z()*input[2].attrs.modelPos;
                 num++;
                 if(num > max_size) 
                 {

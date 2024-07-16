@@ -63,7 +63,7 @@ void Render::drawFrame(const Loader& obj_loader)
         ubo.cameraPos = ubo.lights[i].pos;
         ubo.shadowmap_zNear = 0.1f;
         ubo.shadowmap_zFar = 100.f;
-        ubo.set_view(ubo.lights[i].pos, Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f));
+        ubo.set_view(ubo.lights[i].pos, ubo.lookatPoint, Eigen::Vector3f(0.f, 1.f, 0.f));
         ubo.set_orthoProjection(-10.f, 10.f, -10.f, 10.f, ubo.shadowmap_zNear, ubo.shadowmap_zFar);
         // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), 0.1f, 100.f);
         ubo.lights[i].lightVP = ubo.projection * ubo.view;
@@ -113,7 +113,7 @@ void Render::drawFrame(const Loader& obj_loader)
             int use_threads = std::clamp(int(obj.indices.size())/3, 1, defferedPass_pipelineNum);
             for(int i=0; i<defferedPass_pipelineNum; i++)
             {
-                m_pipeline[i]->set_state(gbuffer_VertexShader, texture_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
+                m_pipeline[i]->set_state(point_VertexShader, texture_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
             #pragma omp parallel for num_threads(use_threads)
             for(int i=0; i<obj.indices.size(); i+=3)
