@@ -22,8 +22,8 @@
 #include "mipmap.hpp"
 // #include "tbb/tbb.h"
 
-const int w = 1080;
-const int h = 720;
+const int w = 600;
+const int h = 600;
 openrenderer::Uniform ubo;
 
 #undef main     // remove the SDL defination for SDL_main: #define main SDL_main
@@ -68,25 +68,29 @@ int main(int argc, char* argv[])
     modelMats[2] = scale(0.15f, 0.15f, 0.15f) * translate({0.f, 0.0001f, 0.f});
     fragmentShaders[0] = point_FragmentShader;
 
-    // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cornellbox/light.obj",
+    // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cube.obj",
+    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/bunny.obj",
+    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/light.obj",
     //                                             "C:/vscode_files/openrenderer/obj/cornellbox/floor.obj",
     //                                             "C:/vscode_files/openrenderer/obj/cornellbox/left.obj",
     //                                             "C:/vscode_files/openrenderer/obj/cornellbox/right.obj",};
     // Eigen::Vector3f eyePos(0.f, 0.f, -7.f);
     // std::vector<Light> lights = {
-    //     {{2.28f, 2.25f, 2.295f}, {3.5f, 3.5f, 3.5f}, false, Eigen::Matrix4f::Identity(), nullptr},
+    //     {{0.f, 2.73f, -0.f}, {10.5f, 10.5f, 10.5f}, true, Eigen::Matrix4f::Identity(), nullptr},
+    //     {{0.f, 0.f, -2.f}, {10.5f, 10.5f, 10.5f}, true, Eigen::Matrix4f::Identity(), nullptr},
     // };
     // std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
     // std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
-    // std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), albedo_FragmentShader);
-    // for(int i=0; i<obj_paths.size(); i++)
-    //     modelMats[i] = scale(0.01f, 0.01f, 0.01f);
-    // modelMats[0] = translate({0.f, -0.01f, 0.f}) * modelMats[0];
+    // std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), ssr_FragmentShader);
+    // for(int i=2; i<obj_paths.size(); i++)
+    //     modelMats[i] = scale(0.01f, 0.01f, 0.01f) * translate({-274.8f, -274.35f, -279.6f});
+    // modelMats[0] = rotate(45.f/180.f*float(M_PI), {0.f, 1.f, 0.f})*translate({1.f, -1.74f, 0.f});
+    // modelMats[1] =  translate({-1.5f, -3.12f, -1.f}) * scale(12.f, 12.f, 12.f);
 
     /*1. load the .obj*/
     openrenderer::Loader loader;
     loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&lightcolorTexture, &niucolorTexture, &floorcolorTexture}, {&lightnormalTexture, &niunormalTexture, &floornormalTexture}, modelMats);
-    // loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {{1.f, 1.f, 1.f}, {0.95f, 0.9f, 0.9f}, {1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}}, {}, modelMats);
+    // loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {{1.f, 1.f, 1.f}, {1.f, 1.f, 0.0f}, {1.f, 1.f, 1.f}, {0.95f, 0.9f, 0.9f}, {1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}}, {}, modelMats);
     /*2.init scene*/
     ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
     loader.objects[0].light = &ubo.lights[0];
@@ -98,7 +102,6 @@ int main(int argc, char* argv[])
     Render render(w, h, true, true, true, PixelFormat::RGB888, PixelFormat::ARGB8888, PixelFormat::ARGB8888);
     render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     
-
     //main loop
     SDL_Event event;
     ControlResult state = ControlResult::CONTROL_NONE;
@@ -122,7 +125,7 @@ int main(int argc, char* argv[])
     }
     else
     {
-        for(int i=0; i<100; i++)
+        for(int i=0; i<1; i++)
         {
             auto start = std::chrono::high_resolution_clock::now();
             render.drawFrame(loader);

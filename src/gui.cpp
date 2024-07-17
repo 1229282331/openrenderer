@@ -308,6 +308,8 @@ ControlResult GuiControl::control(const SDL_Event& event)
                     {
                         // move the picked object for z-axis
                         Eigen::Vector3f translateVec = Eigen::Vector3f{0.f, 0.f, 0.1f * float(mouseWheelY)};
+                        if(m_loader->objects[m_id].light)
+                            m_loader->objects[m_id].light->pos += translateVec;
                         ubo.move_model(m_id, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
                         m_loader->objects[m_id].bounding_box.p_min += translateVec;
                         m_loader->objects[m_id].bounding_box.p_max += translateVec;

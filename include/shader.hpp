@@ -521,7 +521,7 @@ inline Eigen::Vector3f triangle_FragmentShader(const Point& input)
 
 inline Eigen::Vector3f normal_FragmentShader(const Point& input)
 {
-    Eigen::Vector3f color = (input.v.normal.normalized() + Eigen::Vector3f(1.f, 1.f, 1.f))/2.f;
+    Eigen::Vector3f color = input.attrs.normal.normalized();
     return color;
 }
 
@@ -668,8 +668,10 @@ inline Eigen::Vector3f albedo_FragmentShader(const Point& input)
         Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
         Eigen::Vector3f h = (l+v).normalized();
-        float r2_inverse = 1.f / std::pow((ubo.lights[i].pos-input.attrs.modelPos).norm(), 2.f);
         float cos_a = std::max(0.f, n.dot(h));
+        float r = (ubo.lights[i].pos-input.attrs.modelPos).norm();
+        float r2_inverse = 1.f/std::pow(r, 2.f);
+        
 
         Eigen::Vector3f Ld = kd.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * cos_a;
         Eigen::Vector3f Ls = ks.cwiseProduct(ubo.lights[i].intensity*r2_inverse) * pow(cos_a, p);
@@ -722,7 +724,7 @@ inline Eigen::Vector3f mirror_FragmentShader(const Point& input)
                                                   (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
         Eigen::Vector3f reflect_dir = reflect(wo, normal);
         Eigen::Vector3f hitPos = {0.f, 0.f, 0.f};
-        if(rayMarchAcc(pos, reflect_dir, hitPos, input))
+        if(rayMarch(pos, reflect_dir, hitPos, input))
         {
             Eigen::Vector2i screenHitPos = worldPos2screenPos(hitPos);
             Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::B),

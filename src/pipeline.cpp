@@ -275,9 +275,12 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
     #pragma omp parallel for if(m_rasterSize>10000) num_threads(3)
     for(int i=0; i<m_rasterSize; i++) 
     {
-        if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.ndcPos.z(), 
-                m_framebuffers->width, m_framebuffers->height, m_framebuffers->z_buffer))
+        int index = m_rasterPoints[i].screen_pos.y() * m_framebuffers->width + m_rasterPoints[i].screen_pos.x();
+        if(m_rasterPoints[i].attrs.ndcPos.z()>0.f && m_rasterPoints[i].attrs.ndcPos.z() < m_framebuffers->z_buffer[index]-1e-4)
+        // if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.ndcPos.z(), 
+        //         m_framebuffers->width, m_framebuffers->height, m_framebuffers->z_buffer))
         {
+            m_framebuffers->z_buffer[index] = m_rasterPoints[i].attrs.ndcPos.z();
             int x = m_rasterPoints[i].screen_pos.x();
             int y = m_rasterPoints[i].screen_pos.y();
             Float32ToUint8 value;
@@ -432,7 +435,7 @@ bool test_depth(int x, int y, float z, int width, int height, float* z_buffer)
 {
     int index = y * width + x;
     bool is_shade = false;
-    if(z>0.f && z < z_buffer[index] - 1e-4)
+    if(z < z_buffer[index] - 1e-4)
     {
         z_buffer[index] = z;
         is_shade = true;
