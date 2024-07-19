@@ -17,9 +17,9 @@
 #include "geometry.hpp"
 #include "gui.hpp"
 #include "renderer.hpp"
-#include "shader.hpp"
 #include "texture.hpp"
 #include "mipmap.hpp"
+#include "config.hpp"
 // #include "tbb/tbb.h"
 
 const int w = 600;
@@ -48,58 +48,20 @@ int main(int argc, char* argv[])
     omp_set_nested(1);
     bool is_display = true;
 
-    const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cube.obj", "C:/vscode_files/openrenderer/obj/Marry.obj", "C:/vscode_files/openrenderer/obj/floor.obj"};
-    Eigen::Vector3f eyePos(5.f, 5.f, -5.f);
-    std::vector<Light> lights = {
-        {{0.f, 10.f, 10.f}, {100, 100, 100}, true, Eigen::Matrix4f::Identity(), nullptr},
-        // {{0.f, 20.f, -20.f}, {500,500, 500}, false, Eigen::Matrix4f::Identity(), nullptr},
-    };
-    std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
-    std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
-    std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), phong_FragmentShader);
-    Texture lightcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
-    Texture lightnormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
-    Texture niucolorTexture("C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png");
-    Texture niunormalTexture("C:/vscode_files/openrenderer/texture/hmap.jpg");
-    Texture floorcolorTexture("C:/vscode_files/openrenderer/texture/checker.png");
-    Texture floornormalTexture("C:/vscode_files/openrenderer/texture/brickwall_normal.jpg");
-    modelMats[0] = translate(1.1*lights[0].pos) * scale(0.1f, 0.1f, 0.1f);
-    // modelMats[1] = translate({0.0f, 1.f, 0.f});
-    modelMats[2] = scale(0.15f, 0.15f, 0.15f) * translate({0.f, 0.0001f, 0.f});
-    fragmentShaders[0] = point_FragmentShader;
-
-    // const std::vector<std::string> obj_paths = {"C:/vscode_files/openrenderer/obj/cube.obj",
-    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/bunny.obj",
-    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/light.obj",
-    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/floor.obj",
-    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/left.obj",
-    //                                             "C:/vscode_files/openrenderer/obj/cornellbox/right.obj",};
-    // Eigen::Vector3f eyePos(0.f, 0.f, -7.f);
-    // std::vector<Light> lights = {
-    //     {{0.f, 2.73f, -0.f}, {10.5f, 10.5f, 10.5f}, true, Eigen::Matrix4f::Identity(), nullptr},
-    //     {{0.f, 0.f, -2.f}, {10.5f, 10.5f, 10.5f}, true, Eigen::Matrix4f::Identity(), nullptr},
-    // };
-    // std::vector<Eigen::Matrix4f> modelMats(obj_paths.size(), Eigen::Matrix4f::Identity());
-    // std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders(obj_paths.size(), nmap_VertexShader);
-    // std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders(obj_paths.size(), ssr_FragmentShader);
-    // for(int i=2; i<obj_paths.size(); i++)
-    //     modelMats[i] = scale(0.01f, 0.01f, 0.01f) * translate({-274.8f, -274.35f, -279.6f});
-    // modelMats[0] = rotate(45.f/180.f*float(M_PI), {0.f, 1.f, 0.f})*translate({1.f, -1.74f, 0.f});
-    // modelMats[1] =  translate({-1.5f, -3.12f, -1.f}) * scale(12.f, 12.f, 12.f);
-
+    /*0. parse config-file*/
+    Config config("../../../marry_scene.json");
     /*1. load the .obj*/
     openrenderer::Loader loader;
-    loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {&lightcolorTexture, &niucolorTexture, &floorcolorTexture}, {&lightnormalTexture, &niunormalTexture, &floornormalTexture}, modelMats);
-    // loader.load_obj(obj_paths, vertexShaders, fragmentShaders, {{1.f, 1.f, 1.f}, {1.f, 1.f, 0.0f}, {1.f, 1.f, 1.f}, {0.95f, 0.9f, 0.9f}, {1.f, 0.f, 0.f}, {0.f, 1.f, 0.f}}, {}, modelMats);
+    loader.load_obj(config.obj_paths, config.obj_vertexShaders, config.obj_fragmentShaders, config.obj_colorTextures, config.obj_colors, config.obj_normalTextures, config.obj_modelMatrixs);
     /*2.init scene*/
-    ubo.init(w, h, modelMats, eyePos, float(w)/float(h), Eigen::Vector3f(0.f, 0.f, 0.f), Eigen::Vector3f(0.f, 1.f, 0.f), 75.f/180.f*float(MY_PI), 0.1f, 100.f, {0.f, -1.f, 1.f}, lights);
+    ubo.init(config.width, config.height, config.obj_modelMatrixs, config.cameraPos, float(config.width)/float(config.height), config.lookAt, config.upDir, config.fovy/180.f*float(MY_PI), config.zNear, config.zFar, {0.f, -1.f, 1.f}, config.lights);
     loader.objects[0].light = &ubo.lights[0];
     sampleFromHalfSphere(ubo.sampleFromHalfSphere, 10);
     /*3. init SDL*/
     Gui::init(w, h, "openrenderer", SDL_FLIP_VERTICAL);
     Gui::self().create_texture(SDL_PIXELFORMAT_BGR24);
     /*4. init renderer*/
-    Render render(w, h, true, true, true, PixelFormat::RGB888, PixelFormat::ARGB8888, PixelFormat::ARGB8888);
+    Render render(w, h, true, true, config.enableDefferedRender, PixelFormat::RGB888, PixelFormat::ARGB8888, PixelFormat::ARGB8888);
     render.init_pipeline(PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD, point_VertexShader, texture_FragmentShader);
     
     //main loop
@@ -147,13 +109,11 @@ int main(int argc, char* argv[])
     return 0;    
 }
 
-
-
 // int main()
 // {
-//     float x[5];
-//     memset(x, 0xf1, sizeof(float)*5);
-//     std::cout << x[0] << std::endl;
-  
+//     Config config("../../../config.json");
+
+
 // }
+
   

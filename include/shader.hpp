@@ -6,7 +6,8 @@
 
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
-#define NUM_SAMPLES 16
+#define PCSS_NUM_SAMPLES 16
+#define SSR_NUM_SAMPLES 1
 
 namespace openrenderer{
 
@@ -346,9 +347,9 @@ inline float calVisibility(const std::vector<Light>& lights, const Point& input,
             if(strcmp(method, "hard")==0)
                 visibility += isVisible(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input);
             else if(strcmp(method, "pcf")==0)
-                visibility += PCF(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input, "poissonDisk", 1000, NUM_SAMPLES, 10.f);
+                visibility += PCF(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input, "poissonDisk", 1000, PCSS_NUM_SAMPLES, 10.f);
             else if(strcmp(method, "pcss")==0)
-                visibility += PCSS(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input, "poissonDisk", 1000, NUM_SAMPLES);
+                visibility += PCSS(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input, "poissonDisk", 1000, PCSS_NUM_SAMPLES);
             else
                 visibility += isVisible(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input);
             shadows_num++;
@@ -777,7 +778,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
         //indirect light
         float pdf = 0.f;
         Eigen::Vector3f subLightPos = {0.f, 0.f, 0.f};
-        for(int i=0; i<NUM_SAMPLES; i++)
+        for(int i=0; i<SSR_NUM_SAMPLES; i++)
         {
             Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
             Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
@@ -791,7 +792,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
             }
         }
     }
-    L_indir /= NUM_SAMPLES;
+    L_indir /= SSR_NUM_SAMPLES;
     
 
     return  L_dir + L_indir;

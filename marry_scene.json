@@ -1,0 +1,92 @@
+{
+   "objects" : [
+      {
+         "name" : "cube",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cube.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 1.0, 1.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "C:/vscode_files/openrenderer/texture/checker.png",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "texture_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.1, 0.1, 0.1 ],
+            "translate" : [ 0.0, 10.5, 10.5 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : []
+            }
+         }
+      },
+      {
+         "name" : "marry",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/Marry.obj",
+         "color" : {
+            "enable" : false,
+            "rgb" : []
+         },
+         "textures" : {
+            "colorTexture_path" : "C:/vscode_files/openrenderer/texture/MC003_Kozakura_Mari.png",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "phong_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [],
+            "translate" : [],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : []
+            }
+         }
+      },
+      {
+         "name" : "floor",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/floor.obj",
+         "color" : {
+            "enable" : false,
+            "rgb" : [ 1.0, 1.0, 1.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "C:/vscode_files/openrenderer/texture/checker.png",
+            "normalTexture_path" : "C:/vscode_files/openrenderer/texture/hmap.jpg"
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "phong_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.15, 0.15, 0.15 ],
+            "translate" : [],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : []
+            }
+         }
+      }
+   ],
+   "lights" : [
+      {
+         "position" : [0.0, 10.0, 10.0],
+         "intensity" : [100, 100, 100],
+         "enable_shadowmap" : true
+      }
+   ],
+   "width" : 600,
+   "height" : 600,
+   "cameraPos" : [5.0, 5.0, -5.0],
+   "lookAt" : [0.0, 0.0, 0.0],
+   "upDir" : [0.0, 1.0, 0.0],
+   "fovy" : 75.0,
+   "zNear" : 0.1,
+   "zFar" : 100.0,
+   "enableDefferedRender" : true
+ }

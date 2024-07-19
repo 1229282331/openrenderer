@@ -111,6 +111,7 @@
         "*.inc": "cpp",
         "shared_mutex": "cpp",
         "xstddef": "cpp",
-        "*.main": "cpp"
+        "*.main": "cpp",
+        "stack": "cpp"
     },
 }

@@ -1,0 +1,164 @@
+{
+   "objects" : [
+      {
+         "name" : "cube",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cube.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 1.0, 1.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "ssr_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 1.0, 1.0, 1.0 ],
+            "translate" : [ 1.0, -1.74, 0.0 ],
+            "rotate" : {
+               "angle" : 45.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      },
+      {
+         "name" : "bunny",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/bunny.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 1.0, 0.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "ssr_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 12.0, 12.0, 12.0 ],
+            "translate" : [ -1.5, -3.12, -1.0 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      },
+      {
+         "name" : "light",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/light.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 1.0, 1.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "ssr_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.01, 0.01, 0.01 ],
+            "translate" : [ -2.748, -2.7435, -2.796 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      },
+      {
+         "name" : "floor",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/floor.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 0.95, 0.9, 0.9 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "ssr_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.01, 0.01, 0.01 ],
+            "translate" : [ -2.748, -2.7435, -2.796 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      },
+      {
+         "name" : "left",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/left.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 0.0, 0.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "ssr_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.01, 0.01, 0.01 ],
+            "translate" : [ -2.748, -2.7435, -2.796 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      },
+      {
+         "name" : "right",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/right.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 0.0, 1.0, 0.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "ssr_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.01, 0.01, 0.01 ],
+            "translate" : [ -2.748, -2.7435, -2.796 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      }
+   ],
+   "lights" : [
+      {
+         "position" : [0.0, 2.7, 0.0],
+         "intensity" : [50, 50, 50],
+         "enable_shadowmap" : true
+      }
+   ],
+   "width" : 600,
+   "height" : 600,
+   "cameraPos" : [0.0, 0.0, -7.0],
+   "lookAt" : [0.0, 0.0, 0.0],
+   "upDir" : [0.0, 1.0, 0.0],
+   "fovy" : 75.0,
+   "zNear" : 0.1,
+   "zFar" : 100.0,
+   "enableDefferedRender" : true
+ }

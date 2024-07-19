@@ -1,6 +1,6 @@
 
 add_subdirectory(eigen)
-
+add_subdirectory(jsoncpp)
 # if(NOT TARGET SDL2)
 #     option(SDL_TEST "" OFF)
 #     add_subdirectory(SDL2)
