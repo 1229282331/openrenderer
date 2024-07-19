@@ -27,12 +27,11 @@ public:
     Pipeline& pipeline(int index) { return *m_pipeline[index]; }
     Framebuffers* framebuffers() { return m_framebuffers.get(); }
 
-
+    static const int num_threads = 16;
 private:
     int m_width;
     int m_height;
     int m_isDefferedRender;
-    static const int num_threads = 16;
 
     std::unique_ptr<Framebuffers> m_framebuffers;
     std::unique_ptr<Gbuffers> m_gbuffers;

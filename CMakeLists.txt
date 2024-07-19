@@ -63,8 +63,10 @@ endif()
 set(TARGET_NAME ${CMAKE_PROJECT_NAME})
 # 设置VS中的启动项目
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    add_compile_options("/MP")
-    set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${TARGET_NAME})
+  add_compile_options("/MP")
+  set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${TARGET_NAME})
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  add_compile_options("-Wno-deprecated-declarations" "-Wno-narrowing" "-Wno-unknown-pragmas") # 关闭编译器特定警告 
 endif()
 
 

@@ -4,6 +4,10 @@
 
 namespace openrenderer{
 
+#if defined(__GNUC__)  
+    extern const int Render::num_threads;
+#endif
+
 Render::Render(int w, int h, bool enable_color, bool enable_depth, bool enable_defferedRender, PixelFormat color_format, PixelFormat depth_format, PixelFormat gbuffer_format) : m_width(w), m_height(h), m_isDefferedRender(enable_defferedRender)
 {
     m_framebuffers = std::make_unique<Framebuffers>(w, h, enable_color, enable_depth, color_format, depth_format);

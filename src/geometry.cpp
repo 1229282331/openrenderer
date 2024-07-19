@@ -1,5 +1,3 @@
-#pragma once
-
 #include "geometry.hpp"
 
 extern openrenderer::Uniform ubo;
