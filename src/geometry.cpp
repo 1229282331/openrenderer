@@ -176,7 +176,7 @@ Framebuffers::Framebuffers(int w, int h, bool enable_color, bool enable_depth, P
     if(enable_depth)
     {
         int shadowMap_num = 0;
-        for(int i=0; i<ubo.lights.size(); i++)
+        for(unsigned int i=0; i<ubo.lights.size(); i++)
         {
             if(ubo.lights[i].hasShadowMap)
             {
@@ -194,7 +194,7 @@ Framebuffers::~Framebuffers()
 {
     delete []z_buffer;
     color_buffer.reset();
-    for(int i=0; i<depth_buffer.size(); i++)
+    for(unsigned int i=0; i<depth_buffer.size(); i++)
     {
         delete depth_buffer[i];
         depth_buffer[i] = nullptr;
@@ -210,14 +210,14 @@ Framebuffers::Framebuffers(const Framebuffers& rhs)
     color_buffer = std::make_unique<Buffer<uint8_t>>(*rhs.color_buffer);
     if(depth_buffer.size())
     {
-        for(int i=0; i<depth_buffer.size(); i++)
+        for(unsigned int i=0; i<depth_buffer.size(); i++)
         {
             delete depth_buffer[i];
             depth_buffer[i] = nullptr;
         }
         depth_buffer.clear();
     }
-    for(int i=0; i<rhs.depth_buffer.size(); i++)
+    for(unsigned int i=0; i<rhs.depth_buffer.size(); i++)
     {
         Buffer<uint8_t>* buf = new Buffer<uint8_t>(*rhs.depth_buffer[i]);
         depth_buffer.push_back(buf);
@@ -233,13 +233,13 @@ void Framebuffers::clear(BufferType type)
         color_buffer->clear();
     else if(type==BufferType::DEPTH)
     {
-        for(int i=0 ;i<depth_buffer.size(); i++)
+        for(unsigned int i=0 ;i<depth_buffer.size(); i++)
             depth_buffer[i]->clear();
     }
     else if(type==(BufferType::COLOR|BufferType::DEPTH))
     {
         color_buffer->clear();
-        for(int i=0 ;i<depth_buffer.size(); i++)
+        for(unsigned int i=0 ;i<depth_buffer.size(); i++)
             depth_buffer[i]->clear();
     }
     std::fill(z_buffer, z_buffer+width*height, std::numeric_limits<float>::max());

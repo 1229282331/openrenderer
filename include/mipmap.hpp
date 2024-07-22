@@ -23,7 +23,7 @@ T max(T lt, T lb, T rt, T rb)
 template <typename T, int levels>
 class MipMap{
 public:
-    MipMap(const Buffer<T>& sourceMap) : m_pbyte(sourceMap.pbyte), m_levels(levels), m_format(sourceMap.format)
+    MipMap(const Buffer<T>& sourceMap) : m_levels(levels), m_pbyte(sourceMap.pbyte), m_format(sourceMap.format)
     {
         Buffer<T>* mipmap = new Buffer<T>(sourceMap);
         m_maps.push_back(mipmap);

@@ -127,13 +127,13 @@ Config::Config(const char* file)
 
 Config::~Config()
 {
-    for(int i=0; i<obj_colorTextures.size(); i++)
+    for(unsigned int i=0; i<obj_colorTextures.size(); i++)
     {
         if(obj_colorTextures[i])
             delete obj_colorTextures[i];
         obj_colorTextures[i] = nullptr;
     }
-    for(int i=0; i<obj_normalTextures.size(); i++)
+    for(unsigned int i=0; i<obj_normalTextures.size(); i++)
     {
         if(obj_normalTextures[i])
             delete obj_normalTextures[i];

@@ -78,7 +78,7 @@
          "position" : [0.0, 10.0, 10.0],
          "intensity" : [100, 100, 100],
          "enable_shadowmap" : true
-      }
+      } 
    ],
    "width" : 600,
    "height" : 600,

@@ -149,7 +149,7 @@
       {
          "position" : [0.0, 2.7, 0.0],
          "intensity" : [50, 50, 50],
-         "enable_shadowmap" : true
+         "enable_shadowmap" : false
       }
    ],
    "width" : 600,

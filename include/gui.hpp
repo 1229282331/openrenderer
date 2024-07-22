@@ -4,8 +4,10 @@
 #include <vector>
 #include <ctime>
 #include <sstream>
+extern "C"{
 #include "SDL.h"
 #include "SDL_image.h"
+}
 #include "renderer.hpp"
 #include "geometry.hpp"
 

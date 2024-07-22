@@ -62,7 +62,7 @@ enum class ShadeFrequency{ FLAT, GOURAUD };
 class Pipeline{
 public:
     Pipeline(PrimitiveType primitive, ShadeFrequency freq, std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)> vertexShaderFunc, std::function<Eigen::Vector3f(const Point&)> fragmentShaderFunc, const Framebuffers& framebuffers, const Gbuffers* gbuffers) 
-        : m_primitiveType(primitive), m_shadeFrequency(freq), m_vertexShaderFunc(vertexShaderFunc), m_fragmentShaderFunc(fragmentShaderFunc), m_colorTexture(nullptr), m_renderRegion(Region())
+        : m_renderRegion(Region()), m_primitiveType(primitive), m_shadeFrequency(freq), m_colorTexture(nullptr), m_vertexShaderFunc(vertexShaderFunc), m_fragmentShaderFunc(fragmentShaderFunc)
     { 
 
         m_framebuffers = std::make_unique<Framebuffers>(framebuffers);

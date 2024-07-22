@@ -8,8 +8,6 @@
 #include <ctime>
 #include <chrono>
 #include "omp.h"
-#include "SDL.h"
-#include "SDL_image.h"
 // #include "stb_image.h"
 #include "Eigen/Eigen"
 #include "Eigen/Dense"
@@ -49,7 +47,7 @@ int main(int argc, char* argv[])
     bool is_display = true;
 
     /*0. parse config-file*/
-    Config config("../../../marry_scene.json");
+    Config config("C:/vscode_files/openrenderer/marry_scene.json");
     /*1. load the .obj*/
     openrenderer::Loader loader;
     loader.load_obj(config.obj_paths, config.obj_vertexShaders, config.obj_fragmentShaders, config.obj_colorTextures, config.obj_colors, config.obj_normalTextures, config.obj_modelMatrixs);

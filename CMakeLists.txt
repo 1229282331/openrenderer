@@ -40,25 +40,7 @@ set(TBB_INCLUDE ${THIRD_PARTY_DIR}/oneTBB/include)
 set(SDL2_INCLUDE ${THIRD_PARTY_DIR}/SDL2/include)
 set(SDL2image_INCLUDE ${THIRD_PARTY_DIR}/SDL2_image/include)
 set(jsoncpp_INCLUDE ${THIRD_PARTY_DIR}/jsoncpp/include)
-if(UNIX)
-  set(SDL2_LIB 
-  ${THIRD_PARTY_DIR}/SDL2/lib/libSDL2.a 
-  ${THIRD_PARTY_DIR}/SDL2/lib/libSDL2main.a
-  )
-  set(SDL2image_LIB 
-  ${THIRD_PARTY_DIR}/SDL2_image/lib/libSDL2_image.a
-  )
-else()
-  set(SDL2_LIB 
-    ${THIRD_PARTY_DIR}/SDL2/lib/SDL2d.lib 
-    ${THIRD_PARTY_DIR}/SDL2/lib/SDL2maind.lib 
-    ${THIRD_PARTY_DIR}/SDL2/lib/SDL2-staticd.lib
-  )
-  set(SDL2image_LIB 
-    ${THIRD_PARTY_DIR}/SDL2_image/lib/SDL2_imaged.lib
-  )
-  file(GLOB_RECURSE TBB_LIB ${THIRD_PARTY_DIR}/oneTBB/lib/*.lib)
-endif()
+
 
 set(TARGET_NAME ${CMAKE_PROJECT_NAME})
 # 设置VS中的启动项目
@@ -73,7 +55,6 @@ endif()
 # 设置项目源代码和头文件
 file(GLOB_RECURSE HEADER_FILES "*.h" "*.hpp")
 file(GLOB_RECURSE SOURCE_FILES "src/*.cpp")
-file(GLOB_RECURSE SHARED_LIB "3rdparty/*.dll")
 
 # 在VS中生成文件树
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${SOURCE_FILES} ${HEADER_FILES} main.cpp)
@@ -98,22 +79,15 @@ else()
       endif()
 endif()
 
-# target_link_libraries(${TARGET_NAME} PUBLIC ${TBB_LIB})
-target_link_libraries(${TARGET_NAME} PUBLIC ${SDL2_LIB})
-target_link_libraries(${TARGET_NAME} PUBLIC ${SDL2image_LIB})
+target_link_libraries(${TARGET_NAME} PUBLIC SDL2)
+target_link_libraries(${TARGET_NAME} PUBLIC SDL2_image)
 target_link_libraries(${TARGET_NAME} PUBLIC jsoncpp_static)
 target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${THIRD_PARTY_DIR}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${EIGEN_INCLUDE}>)
-# target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${TBB_INCLUDE}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${SDL2_INCLUDE}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${SDL2image_INCLUDE}>)
 target_include_directories(${TARGET_NAME} PUBLIC $<BUILD_INTERFACE:${jsoncpp_INCLUDE}>)
-
-file(COPY ${SHARED_LIB} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-file(COPY ${SHARED_LIB} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Debug)
-file(COPY ${SHARED_LIB} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Release)
-file(COPY ${SHARED_LIB} DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/RelWithDebInfo)
 
 
 

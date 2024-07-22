@@ -131,7 +131,7 @@ Gui::Gui(int w, int h, const char* name, SDL_RendererFlip flip, uint32_t flags) 
 Gui::~Gui()
 {
     // destroy texture
-    for(int i=0; i<textures.size(); i++)
+    for(unsigned int i=0; i<textures.size(); i++)
     {
         SDL_DestroyTexture(textures[i]);
         textures[i] = nullptr;
@@ -185,12 +185,12 @@ ControlResult GuiControl::control(const SDL_Event& event)
                         // move the scene
                         m_newPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
                         Eigen::Vector3f translateVec = m_newPos - m_oldPos;
-                        for(int j=0; j<ubo.lights.size(); j++)
+                        for(unsigned int j=0; j<ubo.lights.size(); j++)
                         {
                             ubo.lights[j].pos += translateVec;
                             ubo.lookatPoint += translateVec;
                         }
-                        for(int i=0; i<m_loader->objects.size(); i++)
+                        for(unsigned int i=0; i<m_loader->objects.size(); i++)
                         {
                             ubo.move_model(i, 0.f, Eigen::Vector3f(0.f, 0.f, 0.f), translateVec);
                             m_loader->objects[i].bounding_box.p_min += translateVec;
@@ -214,7 +214,6 @@ ControlResult GuiControl::control(const SDL_Event& event)
                     else
                     {
                         // rotate the scene
-                        float r2 = pow(ubo.cameraPos.norm(), 2.f);
                         int delta_x = mousePosX - m_mousePosX;
                         int delta_y = mousePosY - m_mousePosY;
                         m_mousePosX = mousePosX;
@@ -238,7 +237,7 @@ ControlResult GuiControl::control(const SDL_Event& event)
                     if(m_isOBJ)
                     {
                         m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                        for(int i=0; i<m_loader->objects.size(); i++)
+                        for(unsigned int i=0; i<m_loader->objects.size(); i++)
                             if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
                             {
                                 m_id = i;
@@ -263,7 +262,7 @@ ControlResult GuiControl::control(const SDL_Event& event)
                     if(m_isOBJ)
                     {
                         m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                        for(int i=0; i<m_loader->objects.size(); i++)
+                        for(unsigned int i=0; i<m_loader->objects.size(); i++)
                             if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
                             {
                                 m_id = i;

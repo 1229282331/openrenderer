@@ -128,7 +128,7 @@ inline void poissonDiskSamples(const Eigen::Vector2f& randomSeed, int num_rings,
     }
 }
 
-inline float findBlocker(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, float light_size, float bias, int width, int height, int num_samples, int shadowmap_resolution)
+inline float findBlocker(const Buffer<uint8_t>* shadowMap, const Eigen::Vector4f& shadowCoord, float light_size, float bias, int width, int height, int num_samples, int shadowmap_resolution)
 {
     // 1.determine the filter region size according the frustum
     float linear_z = depth2Linear(shadowCoord.z(), ubo.shadowmap_zNear, ubo.shadowmap_zFar);
@@ -177,7 +177,7 @@ inline float getShadowBias(float c, int light_id, const Point& input)
     Eigen::Vector3f lightDir = (ubo.lights[light_id].pos - input.attrs.modelPos).normalized();
     return lightDir.dot(input.attrs.normal) * c;
 }
-inline float isVisible(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, float bias, int width, int height, const Point& input)
+inline float isVisible(const Buffer<uint8_t>* shadowMap, const Eigen::Vector4f& shadowCoord, float bias, int width, int height, const Point& input)
 {
     Float32ToUint8 value;
     int x = int((shadowCoord.x()/shadowCoord.w()+1.f)*float(width)/2.f);
@@ -192,15 +192,15 @@ inline float isVisible(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowC
         return 0.f;
     return 1.f;
 }
-inline float PCF(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, float bias, int width, int height, const Point& input, 
+inline float PCF(const Buffer<uint8_t>* shadowMap, const Eigen::Vector4f& shadowCoord_, float bias, int width, int height, const Point& input, 
                     const char* sample_method="nearest", int shadowmap_resolution=720, int num_samples=16, float filter_size=5.f)
 {
     int count = 0;
     float prec = filter_size / float(shadowmap_resolution);
     int weight = num_samples / 16;   // the weight of the shading point
     if(weight < 1)  weight = 1;
-    shadowCoord /= shadowCoord.w();
-
+    Eigen::Vector4f shadowCoord = shadowCoord_ / shadowCoord_.w();
+            
     // 1. calculate the shading point visibility
     Float32ToUint8 value;
     int x = int((shadowCoord.x()+1.f)*float(width)/2.f);
@@ -215,7 +215,6 @@ inline float PCF(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, 
         return 1.f;
     if(lightPass_depth >= cameraPass_depth - bias - EPS)
         count += weight;
-
     // 2. sample points around the shading point
     if(strcmp(sample_method, "nearest")==0)
     {
@@ -318,7 +317,7 @@ inline float PCF(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, 
         return count / float(sample_edge*sample_edge+weight);
     }
 }
-inline float PCSS(const Buffer<uint8_t>* shadowMap, Eigen::Vector4f shadowCoord, float bias, int width, int height, const Point& input, 
+inline float PCSS(const Buffer<uint8_t>* shadowMap, const Eigen::Vector4f& shadowCoord, float bias, int width, int height, const Point& input, 
                     const char* sample_method="nearest", int shadowmap_resolution=720, int num_samples=16)
 {
     float light_size = 10.f;
@@ -338,11 +337,11 @@ inline float calVisibility(const std::vector<Light>& lights, const Point& input,
     // get shading point position from light, calculate the visibility for this point
     float visibility = 0.f;
     int shadows_num = 0;
-    for(int i=0; i<lights.size(); i++)
+    for(unsigned int i=0; i<lights.size(); i++)
     {
         if(lights[i].hasShadowMap)
         {
-            Eigen::Vector4f posFromLight = lights[i].lightVP * ubo.models[input.obj_id] * Eigen::Vector4f{input.v.pos.x(), input.v.pos.y(), input.v.pos.z(), 1.f};
+            Eigen::Vector4f posFromLight = lights[i].lightVP * Eigen::Vector4f{input.attrs.modelPos.x(), input.attrs.modelPos.y(), input.attrs.modelPos.z(), 1.f};
             float bias = getShadowBias(0.001f, i, input);
             if(strcmp(method, "hard")==0)
                 visibility += isVisible(lights[i].shadowMap, posFromLight, bias, ubo.width, ubo.height, input);
@@ -366,14 +365,13 @@ inline float calSSAO(const Point& input, float radius=0.05f)
     if(!input.gbuffers)
         return 0.f;
     float occlusion = 0.f;
-    float sign = ubo.cameraPos.z()<0.f ? 1.f : -1.f;
     Eigen::Vector3f worldPos = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
     Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
-    for(int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
+    for(unsigned int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
     {
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
@@ -396,14 +394,13 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
     if(!input.gbuffers)
         return {0.1f, 0.1f, 0.1f};
     Eigen::Vector3f ambient = {0.f, 0.f, 0.f};
-    float sign = ubo.cameraPos.z()<0.f ? 1.f : -1.f;
     Eigen::Vector3f worldPos = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
     Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
-    for(int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
+    for(unsigned int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
     {
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
@@ -420,7 +417,6 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
         Eigen::Vector3f l = (samplePos-worldPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-worldPos).normalized();
         Eigen::Vector3f h = (l+v).normalized();
-        float r2_inverse = 1.f / std::pow((samplePos-worldPos).norm(), 2.f);
         float cos_a = std::max(0.f, normal.dot(h));
         albedo = albedo * cos_a;
         if(sample_depth > depth + 5e-2)
@@ -579,14 +575,13 @@ inline Eigen::Vector3f ssao_FragmentShader(const Point& input)
 {
     float occlusion = 0.f;
     float radius = 0.05f;
-    float sign = ubo.cameraPos.z()<0.f ? 1.f : -1.f;
     Eigen::Vector3f worldPos = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
     Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
-    for(int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
+    for(unsigned int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
     {
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
@@ -610,14 +605,13 @@ inline Eigen::Vector3f ssdo_FragmentShader(const Point& input)
 {
     Eigen::Vector3f ambient = {0.f, 0.f, 0.f};
     float radius = 0.05f;
-    float sign = ubo.cameraPos.z()<0.f ? 1.f : -1.f;
     Eigen::Vector3f worldPos = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
     Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
-    for(int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
+    for(unsigned int i=0; i<ubo.sampleFromHalfSphere.size(); i++)
     {
         Eigen::Vector3f samplePos = input.attrs.TBN * ubo.sampleFromHalfSphere[i].normalized();
         samplePos = worldPos + samplePos.normalized() * radius;
@@ -634,7 +628,6 @@ inline Eigen::Vector3f ssdo_FragmentShader(const Point& input)
         Eigen::Vector3f l = (samplePos-worldPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-worldPos).normalized();
         Eigen::Vector3f h = (l+v).normalized();
-        float r2_inverse = 1.f / std::pow((samplePos-worldPos).norm(), 2.f);
         float cos_a = std::max(0.f, normal.dot(h));
         albedo = albedo * cos_a;
         if(sample_depth > depth + 5e-2)
@@ -664,7 +657,7 @@ inline Eigen::Vector3f albedo_FragmentShader(const Point& input)
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
     Eigen::Vector3f color = La;
     Eigen::Vector3f n = input.attrs.normal.normalized();
-    for(int i=0; i<ubo.lights.size(); i++)
+    for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
         Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
@@ -697,7 +690,7 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
     Eigen::Vector3f color = La;
     Eigen::Vector3f n = input.attrs.normal.normalized();
-    for(int i=0; i<ubo.lights.size(); i++)
+    for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
         Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
@@ -767,7 +760,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
     
     Eigen::Vector3f L_dir = {0.f, 0.f, 0.f};
     Eigen::Vector3f L_indir = {0.f, 0.f, 0.f};
-    for(int k=0; k<ubo.lights.size(); k++)
+    for(unsigned int k=0; k<ubo.lights.size(); k++)
     {
         Eigen::Vector3f wi = (ubo.lights[k].pos-position).normalized();
         Eigen::Vector3f wo = (ubo.cameraPos-position).normalized();
@@ -810,7 +803,7 @@ inline Eigen::Vector3f normalMapping_FragmentShader(const Point& input)
     Eigen::Vector3f normal = (input.attrs.TBN * (input.normalTexture->getColor(input.v.texCoord.x(), input.v.texCoord.y()) * 2.f - Eigen::Vector3f{1.f, 1.f, 1.f}).normalized()).normalized();
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
     Eigen::Vector3f color = La;
-    for(int i=0; i<ubo.lights.size(); i++)
+    for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
         Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
@@ -848,7 +841,7 @@ inline Eigen::Vector3f bumpMapping_FragmentShader(const Point& input)
 
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
     Eigen::Vector3f color = La;
-    for(int i=0; i<ubo.lights.size(); i++)
+    for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
         Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
@@ -886,7 +879,7 @@ inline Eigen::Vector3f displaceMapping_FragmentShader(const Point& input)
 
     Eigen::Vector3f La = ka.cwiseProduct(amb_intensity);
     Eigen::Vector3f color = La;
-    for(int i=0; i<ubo.lights.size(); i++)
+    for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
         Eigen::Vector3f l = (ubo.lights[i].pos-position).normalized();
         Eigen::Vector3f v = (ubo.cameraPos-position).normalized();

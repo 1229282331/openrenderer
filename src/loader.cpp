@@ -19,7 +19,7 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
                 std::vector<Texture*> pcolorTextures, std::vector<Eigen::Vector3f> obj_colors, std::vector<Texture*> pnormalTextures,
                 const std::vector<Eigen::Matrix4f>& modelMats)
 {
-    for(int i=0; i<obj_paths.size(); i++)
+    for(unsigned int i=0; i<obj_paths.size(); i++)
     {
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
@@ -120,20 +120,20 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
         objects.push_back(obj);
         printf("load object%d : vertices[#%d], faces[#%d]\n", obj.id, int(obj.vertices.size()), int(obj.indices.size())/3);
     }
-    for(int i=0; i<modelMats.size() && i<obj_paths.size(); i++)
+    for(unsigned int i=0; i<modelMats.size() && i<obj_paths.size(); i++)
     {
         Eigen::Vector3f translateVec = Eigen::Vector3f(modelMats[i](0, 3), modelMats[i](1, 3), modelMats[i](2, 3));
         objects[i].bounding_box.p_min += translateVec;
         objects[i].bounding_box.p_max += translateVec;
         objects[i].modelMat = modelMats[i];
     }
-    for(int i=0; i<vertexShaders.size() && i<obj_paths.size(); i++)
+    for(unsigned int i=0; i<vertexShaders.size() && i<obj_paths.size(); i++)
         objects[i].vertexShader = vertexShaders[i];
-    for(int i=0; i<fragmentShaders.size() && i<obj_paths.size(); i++)
+    for(unsigned int i=0; i<fragmentShaders.size() && i<obj_paths.size(); i++)
         objects[i].fragmentShader = fragmentShaders[i];
-    for(int i=0; i<pcolorTextures.size() && i<obj_paths.size(); i++)
+    for(unsigned int i=0; i<pcolorTextures.size() && i<obj_paths.size(); i++)
         objects[i].colorTexture = pcolorTextures[i];
-    for(int i=0; i<pnormalTextures.size() && i<obj_paths.size(); i++)
+    for(unsigned int i=0; i<pnormalTextures.size() && i<obj_paths.size(); i++)
         objects[i].normalTexture = pnormalTextures[i];
 
     return true;
@@ -149,7 +149,7 @@ Box get_boundingBox(const std::vector<Vertex>& vertexs, bool is_relax)
     box.p_min.z() = std::numeric_limits<float>::max();
     box.p_max.z() = std::numeric_limits<float>::min();
 
-    for(int i=0; i<vertexs.size(); i++)
+    for(unsigned int i=0; i<vertexs.size(); i++)
     {
         if(vertexs[i].pos.x() < box.p_min.x())  box.p_min.x() = vertexs[i].pos.x();
         if(vertexs[i].pos.x() > box.p_max.x())  box.p_max.x() = vertexs[i].pos.x();

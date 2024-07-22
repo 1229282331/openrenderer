@@ -37,7 +37,7 @@ void Render::drawFrame(const Loader& obj_loader)
 {
     auto start = std::chrono::high_resolution_clock::now();
     auto end = std::chrono::high_resolution_clock::now();
-    if(!m_pipeline)
+    if(!m_pipeline->get())
     {
         printf("[error] pipeline hasn't set!\n");
         return;
@@ -53,7 +53,7 @@ void Render::drawFrame(const Loader& obj_loader)
     auto cameraPos = ubo.cameraPos;
     int shadowMap_num = 0;
     int firstPass_pipelineNum = std::min(2, num_threads);
-    for(int i=0; i<ubo.lights.size(); i++)
+    for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
         if(!ubo.lights[i].hasShadowMap)
             continue;
@@ -68,7 +68,7 @@ void Render::drawFrame(const Loader& obj_loader)
         ubo.shadowmap_zNear = 0.1f;
         ubo.shadowmap_zFar = 100.f;
         ubo.set_view(ubo.lights[i].pos, ubo.lookatPoint, Eigen::Vector3f(0.f, 1.f, 0.f));
-        ubo.set_orthoProjection(-20.f, 20.f, -20.f, 20.f, ubo.shadowmap_zNear, ubo.shadowmap_zFar);
+        ubo.set_orthoProjection(-10.f, 10.f, -10.f, 10.f, ubo.shadowmap_zNear, ubo.shadowmap_zFar);
         // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), 0.1f, 100.f);
         ubo.lights[i].lightVP = ubo.projection * ubo.view;
         start = std::chrono::high_resolution_clock::now();
@@ -83,7 +83,7 @@ void Render::drawFrame(const Loader& obj_loader)
             if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
             {
                 #pragma omp parallel for num_threads(use_threads)
-                for(int i=0; i<obj.indices.size(); i+=3)
+                for(int i=0; i<int(obj.indices.size()); i+=3)
                 {
                     int thread_id = omp_get_thread_num();
                     m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
@@ -120,7 +120,7 @@ void Render::drawFrame(const Loader& obj_loader)
                 m_pipeline[i]->set_state(point_VertexShader, texture_FragmentShader, obj.colorTexture, obj.normalTexture, nullptr, std::min(m_width*m_height/int(obj.indices.size())*3*1000, m_width*m_height), PrimitiveType::TRIANGLE, ShadeFrequency::GOURAUD);
             }
             #pragma omp parallel for num_threads(use_threads)
-            for(int i=0; i<obj.indices.size(); i+=3)
+            for(int i=0; i<int(obj.indices.size()); i+=3)
             {
                 int thread_id = omp_get_thread_num();
                 m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
@@ -130,6 +130,8 @@ void Render::drawFrame(const Loader& obj_loader)
         end = std::chrono::high_resolution_clock::now();
         t1 += std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count()*1e-6;
         linkSubGbuffers(defferedPass_pipelineNum);
+        if(ubo.depth_mipmap)
+            delete ubo.depth_mipmap;
         ubo.depth_mipmap = new MipMap<float, 8>(*m_gbuffers->position_buffer);
     }
     /* simple rendering */
@@ -150,7 +152,7 @@ void Render::drawFrame(const Loader& obj_loader)
         if(m_pipeline[0]->primitiveType()==PrimitiveType::POINT)
         {
             #pragma omp parallel for num_threads(use_threads)
-            for(int i=0; i<obj.vertices.size(); i++)
+            for(int i=0; i<int(obj.vertices.size()); i++)
             {
                 int thread_id = omp_get_thread_num();
                 m_pipeline[thread_id]->update(obj.vertices[i]);
@@ -160,7 +162,7 @@ void Render::drawFrame(const Loader& obj_loader)
         else if(m_pipeline[0]->primitiveType()==PrimitiveType::LINE)
         {
             #pragma omp parallel for num_threads(use_threads)
-            for(int i=0; i<obj.indices.size(); i+=3)
+            for(int i=0; i<int(obj.indices.size()); i+=3)
             {
                 int thread_id = omp_get_thread_num();
                 m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.indices[i], obj.indices[i+1]); //line v0v1
@@ -174,7 +176,7 @@ void Render::drawFrame(const Loader& obj_loader)
         else if(m_pipeline[0]->primitiveType()==PrimitiveType::TRIANGLE)
         {
             #pragma omp parallel for num_threads(use_threads)
-            for(int i=0; i<obj.indices.size(); i+=3)
+            for(int i=0; i<int(obj.indices.size()); i+=3)
             {
                 int thread_id = omp_get_thread_num();
                 m_pipeline[thread_id]->update(obj.vertices[obj.indices[i]], obj.vertices[obj.indices[i+1]], obj.vertices[obj.indices[i+2]], obj.indices[i], obj.indices[i+1], obj.indices[i+2]);
