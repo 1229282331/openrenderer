@@ -69,7 +69,7 @@ if(USE_SYCL)
   target_include_directories(${TARGET_NAME} PUBLIC "C:/Program Files (x86)/Intel/oneAPI/dpcpp-ct/latest/include")
 else()
   # OpenMP
-  FIND_PACKAGE(OpenMP)
+  FIND_PACKAGE(OpenMP REQUIRED)
   if(OPENMP_FOUND)
       message("OPENMP FOUND")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
