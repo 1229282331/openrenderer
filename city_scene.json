@@ -1,0 +1,68 @@
+{
+   "objects" : [
+      {
+         "name" : "cube",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cube.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 1.0, 1.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "C:/vscode_files/openrenderer/texture/checker.png",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "texture_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.1, 0.1, 0.1 ],
+            "translate" : [ 0.0, 10.5, 10.5 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : []
+            }
+         }
+      },
+      {
+         "name" : "city",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/castle.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [1.0, 1.0, 1.0]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "triangle_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [],
+            "translate" : [],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : []
+            }
+         }
+      }
+   ],
+   "lights" : [
+      {
+         "position" : [0.0, 10.0, 10.0],
+         "intensity" : [100, 100, 100],
+         "enable_shadowmap" : false
+      } 
+   ],
+   "width" : 600,
+   "height" : 600,
+   "cameraPos" : [5.0, 5.0, -5.0],
+   "lookAt" : [0.0, 0.0, 0.0],
+   "upDir" : [0.0, 1.0, 0.0],
+   "fovy" : 75.0,
+   "zNear" : 0.1,
+   "zFar" : 100.0,
+   "enableDefferedRender" : false
+ }

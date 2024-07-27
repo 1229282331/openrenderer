@@ -35,6 +35,8 @@ Eigen::Matrix4f rotate(float angle, const Eigen::Vector3f& v);
 
 Eigen::Matrix4f translate(const Eigen::Vector3f& v);
 
+void decomposeTRS(const Eigen::Matrix4f& TRS, Eigen::Vector3f& scaleVec, Eigen::Vector3f& translateVec, Eigen::Matrix3f& rotateMat);
+
 Eigen::Matrix4f lookAt(const Eigen::Vector3f& eyePos, const Eigen::Vector3f& center=Eigen::Vector3f(0.f, 0.f, 0.f), const Eigen::Vector3f& up=Eigen::Vector3f(0.f, 1.f, 0.f));
 
 Eigen::Matrix4f ortho(float left, float right, float bottom, float top, float zNear, float zFar);

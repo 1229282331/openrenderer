@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     bool is_display = true;
 
     /*0. parse config-file*/
-    Config config("C:/vscode_files/openrenderer/cornellbox_scene.json");
+    Config config("C:/vscode_files/openrenderer/marry_scene.json");
     /*1. load the .obj*/
     openrenderer::Loader loader;
     loader.load_obj(config.obj_paths, config.obj_vertexShaders, config.obj_fragmentShaders, config.obj_colorTextures, config.obj_colors, config.obj_normalTextures, config.obj_modelMatrixs);
@@ -109,8 +109,13 @@ int main(int argc, char* argv[])
 
 // int main()
 // {
-//     Config config("../../../config.json");
+//     Config config("C:/vscode_files/openrenderer/cornellbox_scene.json");
 
+//     Eigen::Vector3f scaleVec;
+//     Eigen::Vector3f translateVec;
+//     Eigen::Matrix3f rotateMat;    
+//     decomposeTRS(config.obj_modelMatrixs[1], scaleVec, translateVec, rotateMat);
+//     std::cout << scaleVec << std::endl;
 
 // }
 

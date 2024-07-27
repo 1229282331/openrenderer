@@ -17,6 +17,7 @@ namespace openrenderer{
 struct Box{
     Eigen::Vector3f p_min;
     Eigen::Vector3f p_max;
+    float volume() { return (p_max[0]-p_min[0])*(p_max[1]-p_min[1])*(p_max[2]-p_min[2]); }
 
     bool intersectP(const Eigen::Vector3f& origin, const Eigen::Vector3f& dir)
     {
@@ -58,11 +59,6 @@ public:
                     std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
                     std::vector<Texture*> pcolorTextures, std::vector<Eigen::Vector3f> obj_colors, std::vector<Texture*> pnormalTextures,
                     const std::vector<Eigen::Matrix4f>& modelMats=std::vector<Eigen::Matrix4f>());
-    bool load_obj(const std::vector<std::string>& obj_paths, 
-                std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders,
-                std::vector<std::function<Eigen::Vector3f(const Point&)>> fragmentShaders,
-                std::vector<Eigen::Vector3f> obj_colors, std::vector<Texture*> pnormalTextures,
-                const std::vector<Eigen::Matrix4f>& modelMats);
 
     std::vector<Object> objects;
     std::vector<std::function<Eigen::Vector4f(const vertex_shader_in&, vertex_shader_out&)>> vertexShaders;

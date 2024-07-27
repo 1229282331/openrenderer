@@ -87,6 +87,22 @@ Eigen::Matrix4f translate(const Eigen::Vector3f& v)
     return Translate;
 }
 
+void decomposeTRS(const Eigen::Matrix4f& TRS, Eigen::Vector3f& scaleVec, Eigen::Vector3f& translateVec, Eigen::Matrix3f& rotateMat)
+{
+    translateVec = Eigen::Vector3f(TRS(0, 3), TRS(1, 3), TRS(2, 3));
+    Eigen::Matrix3f RS;
+    RS << TRS(0,0), TRS(0,1), TRS(0,2),
+          TRS(1,0), TRS(1,1), TRS(1,2),
+          TRS(2,0), TRS(2,1), TRS(2,2);
+    Eigen::Matrix3f S_2 = RS * RS.transpose();
+    Eigen::Matrix3f S = Eigen::Matrix3f::Identity();
+    S(0, 0) = abs(sqrt(S_2(0, 0)));
+    S(1, 1) = abs(sqrt(S_2(1, 1)));
+    S(2, 2) = abs(sqrt(S_2(2, 2)));
+    scaleVec = Eigen::Vector3f{S(0, 0), S(1, 1), S(2, 2)};
+    rotateMat = RS * S.inverse();
+}
+
 Eigen::Matrix4f lookAt(const Eigen::Vector3f& eyePos, const Eigen::Vector3f& center, const Eigen::Vector3f& up)
 {
     Eigen::Vector3f f((center - eyePos).normalized());

@@ -80,7 +80,7 @@ Config::Config(const char* file)
 			Eigen::Vector3f axis = { 0.f, 1.f, 0.f };
             for(unsigned int j=0; j<root["objects"][i]["transform"]["rotate"]["axis"].size(); j++)
                 axis[j] = root["objects"][i]["transform"]["rotate"]["axis"][j].asFloat();
-            Eigen::Matrix4f modelMatrix = rotate(angle/180.f*float(MY_PI), axis) * translate(translateVec) * scale(scaleVec.x(), scaleVec.y(), scaleVec.z());
+            Eigen::Matrix4f modelMatrix = translate(translateVec) * rotate(angle/180.f*float(MY_PI), axis) * scale(scaleVec.x(), scaleVec.y(), scaleVec.z());
             obj_modelMatrixs.push_back(modelMatrix);			
 		}
 		//2.parse the light config

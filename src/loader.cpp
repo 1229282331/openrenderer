@@ -122,7 +122,12 @@ bool Loader::load_obj(const std::vector<std::string>& obj_paths,
     }
     for(unsigned int i=0; i<modelMats.size() && i<obj_paths.size(); i++)
     {
-        Eigen::Vector3f translateVec = Eigen::Vector3f(modelMats[i](0, 3), modelMats[i](1, 3), modelMats[i](2, 3));
+        Eigen::Vector3f scaleVec;
+        Eigen::Matrix3f rotateMat;
+        Eigen::Vector3f translateVec;
+        decomposeTRS(modelMats[i], scaleVec, translateVec, rotateMat);
+        objects[i].bounding_box.p_min = objects[i].bounding_box.p_min.cwiseProduct(scaleVec);
+        objects[i].bounding_box.p_max = objects[i].bounding_box.p_max.cwiseProduct(scaleVec);
         objects[i].bounding_box.p_min += translateVec;
         objects[i].bounding_box.p_max += translateVec;
         objects[i].modelMat = modelMats[i];

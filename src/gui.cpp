@@ -236,16 +236,20 @@ ControlResult GuiControl::control(const SDL_Event& event)
                 {
                     if(m_isOBJ)
                     {
+                        float min_volume = std::numeric_limits<float>::max(); 
                         m_mouseWorldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.95f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
                         for(unsigned int i=0; i<m_loader->objects.size(); i++)
                             if(m_loader->objects[i].bounding_box.intersectP(ubo.cameraPos, (m_mouseWorldPos-ubo.cameraPos).normalized()))
                             {
-                                m_id = i;
-                                m_isTranslate = true;
-                                m_oldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
-                                std::cout << "[Mouse Button Down]: choose the obj to translate." << std::endl;
-                                break;
+                                if(m_loader->objects[i].bounding_box.volume()<min_volume)
+                                {
+                                    m_id = i;
+                                    m_isTranslate = true;
+                                    m_oldPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
+                                    min_volume = m_loader->objects[i].bounding_box.volume();
+                                }
                             }
+                        std::cout << "[Mouse Button Down]: choose the obj to translate." << std::endl;
                     }
                     else
                     {

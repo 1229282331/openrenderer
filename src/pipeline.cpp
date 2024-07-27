@@ -277,8 +277,6 @@ void Pipeline::generate_shadowmap(int obj_id, int shadowmap_id)
     {
         int index = m_rasterPoints[i].screen_pos.y() * m_framebuffers->width + m_rasterPoints[i].screen_pos.x();
         if(m_rasterPoints[i].attrs.ndcPos.z()>0.f && m_rasterPoints[i].attrs.ndcPos.z() < m_framebuffers->z_buffer[index]-1e-4)
-        // if(test_depth(m_rasterPoints[i].screen_pos.x(), m_rasterPoints[i].screen_pos.y(), m_rasterPoints[i].attrs.ndcPos.z(), 
-        //         m_framebuffers->width, m_framebuffers->height, m_framebuffers->z_buffer))
         {
             m_framebuffers->z_buffer[index] = m_rasterPoints[i].attrs.ndcPos.z();
             int x = m_rasterPoints[i].screen_pos.x();
