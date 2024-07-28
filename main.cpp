@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     loader.load_obj(config.obj_paths, config.obj_vertexShaders, config.obj_fragmentShaders, config.obj_colorTextures, config.obj_colors, config.obj_normalTextures, config.obj_modelMatrixs);
     /*2.init scene*/
     ubo.init(config.width, config.height, config.obj_modelMatrixs, config.cameraPos, float(config.width)/float(config.height), config.lookAt, config.upDir, config.fovy/180.f*float(MY_PI), config.zNear, config.zFar, {0.f, -1.f, 1.f}, config.lights);
-    // loader.objects[0].light = &ubo.lights[0];
+    loader.objects[0].light = &ubo.lights[0];
     sampleFromHalfSphere(ubo.sampleFromHalfSphere, 10);
     /*3. init SDL*/
     Gui::init(config.width, config.height, "openrenderer", SDL_FLIP_VERTICAL);

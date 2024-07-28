@@ -7,7 +7,7 @@
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
 #define PCSS_NUM_SAMPLES 16
-#define SSR_NUM_SAMPLES 4
+#define SSR_NUM_SAMPLES 1
 
 namespace openrenderer{
 
@@ -161,6 +161,12 @@ inline float findBlocker(const Buffer<uint8_t>* shadowMap, const Eigen::Vector4f
         return 1.f;
     average_blockerDepth /= float(count);
     return average_blockerDepth;
+}
+inline Eigen::Vector3f randomSampleDirection()
+{
+    static std::uniform_real_distribution<float> randomFloats(-1.f, 1.f);
+    static std::default_random_engine generator;
+    return Eigen::Vector3f{randomFloats(generator), randomFloats(generator), randomFloats(generator)}.normalized();
 }
 inline Eigen::Vector3f sampleHemisphereUniform(float& seed, float& pdf) 
 {
@@ -768,6 +774,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
     
     Eigen::Vector3f L_dir = {0.f, 0.f, 0.f};
     Eigen::Vector3f L_indir = {0.f, 0.f, 0.f};
+    int hit_count = 0;
     for(unsigned int k=0; k<ubo.lights.size(); k++)
     {
         Eigen::Vector3f wi;
@@ -781,11 +788,12 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
         Eigen::Vector3f dir_intensity = r2_inverse * ubo.lights[k].intensity;
         L_dir += visibility * evalDiffuseFunc(wi, wo, input.screen_pos).cwiseProduct(dir_intensity);
         //indirect light
-        float pdf = 0.f;
+        float pdf = float(INV_2PI);
         Eigen::Vector3f subLightPos = {0.f, 0.f, 0.f};
         for(int i=0; i<SSR_NUM_SAMPLES; i++)
         {
             Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
+            // Eigen::Vector3f local_dir = randomSampleDirection();
             Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
             if(rayMarchAcc(position, global_dir, subLightPos, input))
             {
@@ -794,10 +802,12 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
                 Eigen::Vector2i subLightScreenPos = worldPos2screenPos(subLightPos);
                 Eigen::Vector3f indir_intensity = r2_inverse * ubo.lights[k].intensity;
                 L_indir += (evalDiffuseFunc(global_dir, wo, input.screen_pos)/pdf).cwiseProduct(evalDiffuseFunc(subLight_wi, -global_dir, subLightScreenPos).cwiseProduct(indir_intensity));
+                hit_count++;
             }
         }
     }
-    L_indir /= SSR_NUM_SAMPLES;
+    if(hit_count!=0)
+        L_indir /= float(hit_count)/float(ubo.lights.size());
     
 
     return  L_dir + L_indir;

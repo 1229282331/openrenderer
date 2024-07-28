@@ -249,7 +249,8 @@ ControlResult GuiControl::control(const SDL_Event& event)
                                     min_volume = m_loader->objects[i].bounding_box.volume();
                                 }
                             }
-                        std::cout << "[Mouse Button Down]: choose the obj to translate." << std::endl;
+                        if(m_isTranslate)
+                            std::cout << "[Mouse Button Down]: choose the obj to translate." << std::endl;
                     }
                     else
                     {
@@ -278,7 +279,8 @@ ControlResult GuiControl::control(const SDL_Event& event)
                                     min_volume = m_loader->objects[i].bounding_box.volume();
                                 }
                             }
-                        std::cout << "[Mouse Button Down]: choose the obj to rotate." << std::endl;
+                        if(m_isRotate)
+                            std::cout << "[Mouse Button Down]: choose the obj to rotate." << std::endl;
                     }
                     else
                     {

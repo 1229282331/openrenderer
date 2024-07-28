@@ -1,6 +1,30 @@
 {
    "objects" : [
       {
+         "name" : "light",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/light.obj",
+         "color" : {
+            "enable" : true,
+            "rgb" : [ 1.0, 1.0, 1.0 ]
+         },
+         "textures" : {
+            "colorTexture_path" : "",
+            "normalTexture_path" : ""
+         },
+         "shaders": {
+            "vertex_shader" : "nmap_VertexShader",
+            "fragment_shader" : "texture_FragmentShader"
+         },
+         "transform" : {
+            "scale" : [ 0.01, 0.01, 0.01 ],
+            "translate" : [ -2.748, -2.7435, -2.796 ],
+            "rotate" : {
+               "angle" : 0.0,
+               "axis" : [0.0, 1.0, 0.0]
+            }
+         }
+      },
+      {
          "name" : "cube",
          "obj_path" : "C:/vscode_files/openrenderer/obj/cube.obj",
          "color" : {
@@ -44,30 +68,6 @@
             "translate" : [ -1.5, -3.12, -1.0 ],
             "rotate" : {
                "angle" : 45.0,
-               "axis" : [0.0, 1.0, 0.0]
-            }
-         }
-      },
-      {
-         "name" : "light",
-         "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/light.obj",
-         "color" : {
-            "enable" : true,
-            "rgb" : [ 1.0, 1.0, 1.0 ]
-         },
-         "textures" : {
-            "colorTexture_path" : "",
-            "normalTexture_path" : ""
-         },
-         "shaders": {
-            "vertex_shader" : "nmap_VertexShader",
-            "fragment_shader" : "ssr_FragmentShader"
-         },
-         "transform" : {
-            "scale" : [ 0.01, 0.01, 0.01 ],
-            "translate" : [ -2.748, -2.7435, -2.796 ],
-            "rotate" : {
-               "angle" : 0.0,
                "axis" : [0.0, 1.0, 0.0]
             }
          }
@@ -148,7 +148,7 @@
    "lights" : [
       {
          "type" : 1,
-         "position" : [0.0, 2.5, 0.0],
+         "position" : [0.0, 2.7435, 0.0],
          "intensity" : [50, 50, 50],
          "direction" : [0.0, -1.0, 0.0],
          "enable_shadowmap" : false
