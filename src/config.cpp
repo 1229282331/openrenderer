@@ -86,14 +86,18 @@ Config::Config(const char* file)
 		//2.parse the light config
         for(unsigned int i=0; i<root["lights"].size(); i++)
         {
+            LightType type = LightType(root["lights"][i]["type"].asInt());
             Eigen::Vector3f position = {10.f, 10.f, 10.f};
             for(unsigned int j=0; j<root["lights"][i]["position"].size(); j++)
                 position[j] = root["lights"][i]["position"][j].asFloat();
             Eigen::Vector3f intensity = {100.f, 100.f, 100.f};
             for(unsigned int j=0; j<root["lights"][i]["intensity"].size(); j++)
                 intensity[j] = root["lights"][i]["intensity"][j].asFloat();
+            Eigen::Vector3f direction = {0.f, 0.f, 0.f};
+            for(unsigned int j=0; j<root["lights"][i]["direction"].size(); j++)
+                direction[j] = root["lights"][i]["direction"][j].asFloat();
             bool enable_shadowmap = root["lights"][i]["enable_shadowmap"].asBool();
-            Light light = { position, intensity, enable_shadowmap, Eigen::Matrix4f::Identity(), nullptr };
+            Light light = { type, position, intensity, direction.normalized(), enable_shadowmap, Eigen::Matrix4f::Identity(), nullptr };
             lights.push_back(light);
         }
         //3.parse the scene config

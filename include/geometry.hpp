@@ -47,9 +47,12 @@ Eigen::Vector3f inverse2Dto3D(int x, int y, float z, int w, int h, const Eigen::
 
 void RT_decompose(const Eigen::Matrix4f& RT, Eigen::Matrix4f& R, Eigen::Matrix4f& T);
 
+enum class LightType{ POINT, DIRECTION, SURFACE };
 struct Light{
+    LightType type;
     Eigen::Vector3f pos;
     Eigen::Vector3f intensity;
+    Eigen::Vector3f direction;
     bool hasShadowMap;
     Eigen::Matrix4f lightVP;
     Buffer<uint8_t>* shadowMap;

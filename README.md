@@ -32,7 +32,9 @@ cmake --build . -j
 
 ### 效果
 
+1. Marry场景（点光源+Phong+PCSS+SSAO+SSDO）
 ![marry_back](./results/0.png)
 ![marry_whole](./results//1.png)
+2. CornellBox场景（平行光+SSR）
 ![cornellbox_SSR](./results/2.png)
 ![cornellbox_SSR1](./results/3.png)

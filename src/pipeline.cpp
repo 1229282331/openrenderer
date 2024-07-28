@@ -528,6 +528,12 @@ int thread_schedule(int thread_id, int i, int total_threads)
 
 Eigen::Vector3f calculate_tangent(const Vertex points[3])
 {
+    if(points[0].texCoord==Eigen::Vector2f::Zero()&&points[1].texCoord==Eigen::Vector2f::Zero()&&points[2].texCoord==Eigen::Vector2f::Zero())
+    {
+        std::uniform_real_distribution<float> randomFloats(0.f, 1.f);
+        std::default_random_engine generator;
+        return Eigen::Vector3f{randomFloats(generator)*2.0f-1.0f, randomFloats(generator)*2.0f-1.0f, 0.f}.normalized();
+    }
     Eigen::Vector3f tangent;
     Eigen::Vector3f edge1 = points[1].pos - points[0].pos;
     Eigen::Vector3f edge2 = points[2].pos - points[0].pos;

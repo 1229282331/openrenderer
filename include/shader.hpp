@@ -7,7 +7,7 @@
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
 #define PCSS_NUM_SAMPLES 16
-#define SSR_NUM_SAMPLES 1
+#define SSR_NUM_SAMPLES 4
 
 namespace openrenderer{
 
@@ -552,7 +552,7 @@ inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
     float alb_y = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float alb_z = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
     Eigen::Vector3f alb_color = { alb_x, alb_y, alb_z };
-    return depth_color;
+    return nor_color;
 }
 inline Eigen::Vector3f mipmap_FragmentShader(const Point& input)
 {
@@ -659,7 +659,11 @@ inline Eigen::Vector3f albedo_FragmentShader(const Point& input)
     Eigen::Vector3f n = input.attrs.normal.normalized();
     for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
-        Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
+        Eigen::Vector3f l = Eigen::Vector3f::Zero();
+        if(ubo.lights[i].type==LightType::POINT)
+            l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
+        else if(ubo.lights[i].type==LightType::DIRECTION)
+            l = -ubo.lights[i].direction;
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
         Eigen::Vector3f h = (l+v).normalized();
         float cos_a = std::max(0.f, n.dot(h));
@@ -692,7 +696,11 @@ inline Eigen::Vector3f phong_FragmentShader(const Point& input)
     Eigen::Vector3f n = input.attrs.normal.normalized();
     for(unsigned int i=0; i<ubo.lights.size(); i++)
     {
-        Eigen::Vector3f l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
+        Eigen::Vector3f l;
+        if(ubo.lights[i].type==LightType::POINT)
+            l = (ubo.lights[i].pos-input.attrs.modelPos).normalized();
+        else if(ubo.lights[i].type==LightType::DIRECTION)
+            l = -ubo.lights[i].direction;
         Eigen::Vector3f v = (ubo.cameraPos-input.attrs.modelPos).normalized();
         Eigen::Vector3f h = (l+v).normalized();
         float r2_inverse = 1.f / std::pow((ubo.lights[i].pos-input.attrs.modelPos).norm(), 2.f);
@@ -762,7 +770,11 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
     Eigen::Vector3f L_indir = {0.f, 0.f, 0.f};
     for(unsigned int k=0; k<ubo.lights.size(); k++)
     {
-        Eigen::Vector3f wi = (ubo.lights[k].pos-position).normalized();
+        Eigen::Vector3f wi;
+        if(ubo.lights[k].type==LightType::POINT)
+            wi = (ubo.lights[k].pos-position).normalized();
+        else if(ubo.lights[k].type==LightType::DIRECTION)
+            wi = -ubo.lights[k].direction;
         Eigen::Vector3f wo = (ubo.cameraPos-position).normalized();
         float r2_inverse = 1.f / std::pow((ubo.lights[k].pos-position).norm(), 2.f);
         // direct light

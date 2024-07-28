@@ -147,8 +147,10 @@
    ],
    "lights" : [
       {
+         "type" : 1,
          "position" : [0.0, 2.5, 0.0],
          "intensity" : [50, 50, 50],
+         "direction" : [0.0, -1.0, 0.0],
          "enable_shadowmap" : false
       }
    ],
