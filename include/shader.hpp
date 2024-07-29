@@ -7,7 +7,7 @@
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
 #define PCSS_NUM_SAMPLES 16
-#define SSR_NUM_SAMPLES 1
+#define SSR_NUM_SAMPLES 4
 
 namespace openrenderer{
 
@@ -57,6 +57,14 @@ inline float depth2Linear(float z, float zNear, float zFar)
     return zNear + (zFar-zNear)*z;
 }
 
+inline float get_random_float()
+{
+    static std::random_device dev;
+    static std::mt19937 rng(dev());
+    static std::uniform_real_distribution<float> dist(0.f, 1.f); // distribution in range [1, 6]
+
+    return dist(rng);
+}
 inline float rand1(float& p) 
 {
     float tmp;
@@ -175,6 +183,15 @@ inline Eigen::Vector3f sampleHemisphereUniform(float& seed, float& pdf)
     float phi = uv.y() * float(MY_2PI);
     float sinTheta = sqrt(1.0f - z*z);
     Eigen::Vector3f dir = Eigen::Vector3f{sinTheta * cos(phi), sinTheta * sin(phi), z};
+    pdf = float(INV_2PI);
+    return dir;
+}
+inline Eigen::Vector3f sampleHemisphereRandom(float& pdf) 
+{
+    float x_1 = get_random_float(), x_2 = get_random_float();
+    float z = std::fabs(1.0f - 2.0f * x_1);
+    float r = std::sqrt(1.0f - z * z), phi = 2 * MY_PI * x_2;
+    Eigen::Vector3f dir{r*std::cos(phi), r*std::sin(phi), z};
     pdf = float(INV_2PI);
     return dir;
 }
@@ -459,10 +476,10 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
 }
 inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
 {
-    float step_size = 0.033f;
+    float step_size = 0.01f;
     int level = 0;
     float rate = pow(2.f, float(level));
-    int max_search_time = 16;
+    int max_search_time = 20;
     bool status = false;
 
     Eigen::Vector3f current_ori = ori;
@@ -792,7 +809,8 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
         Eigen::Vector3f subLightPos = {0.f, 0.f, 0.f};
         for(int i=0; i<SSR_NUM_SAMPLES; i++)
         {
-            Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
+            // Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
+            Eigen::Vector3f local_dir = sampleHemisphereRandom(pdf);
             // Eigen::Vector3f local_dir = randomSampleDirection();
             Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
             if(rayMarchAcc(position, global_dir, subLightPos, input))
@@ -806,8 +824,7 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
             }
         }
     }
-    if(hit_count!=0)
-        L_indir /= float(hit_count)/float(ubo.lights.size());
+    L_indir /= float(SSR_NUM_SAMPLES);
     
 
     return  L_dir + L_indir;
