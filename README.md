@@ -106,13 +106,11 @@ cmake --build . -j
 </center>
 
 
-
 ### 实时渲染
 
 #### 基础Blinn-Phong模型
 
-
-<iframe width="100%" height="400" src="./results/marry_phong.mp4" frameborder="0" allowfullscreen></iframe>
+![](./results/marry_phong.mp4)
 
 
 <video width="400" height="400" src="./results/marry_phong.mp4"  autoplay="autoplay" preload="none" controls="controls"></video>
