@@ -50,18 +50,19 @@ cmake --build . -j
   </center>
   
   <center class="half">
-    	<img src="./results/gbuffer_cornellbox_pos.png" alt="gbuffer_marry_pos" width="150" />
-    	<img src="./results/gbuffer_cornellbox_depth.png" alt="gbuffer_marry_depth" width="150" />
-    	<img src="./results/gbuffer_cornellbox_normal.png" alt="gbuffer_marry_normal" width="150" />
-    	<img src="./results/gbuffer_cornellbox_albedo.png" alt="gbuffer_marry_albedo" width="150" />
+    	<img src="./results/gbuffer_cornellbox_pos.png" alt="gbuffer_marry_pos" width="140" />
+    	<img src="./results/gbuffer_cornellbox_depth.png" alt="gbuffer_marry_depth" width="140" />
+    	<img src="./results/gbuffer_cornellbox_normal.png" alt="gbuffer_marry_normal" width="140" />
+    	<img src="./results/gbuffer_cornellbox_albedo.png" alt="gbuffer_marry_albedo" width="140" />
   </center>
 - shadowmap（Hard+PCF+PCSS）
 
 <center class="half">
-	<img src="./results/marry_shadowmap_hard.png" alt="marry_shadowmap_hard" style="zoom: 50%;" />
-	<img src="./results/marry_shadowmap_pcf.png" alt="marry_shadowmap_pcf" style="zoom: 50%;" />
-    <img src="./results/marry_shadowmap_pcss.png" alt="marry_shadowmap_pcss" style="zoom: 50%;" />
+	<img src="./results/marry_shadowmap_hard.png" alt="marry_shadowmap_hard" width="200" />
+	<img src="./results/marry_shadowmap_pcf.png" alt="marry_shadowmap_pcf" width="200" />
+    <img src="./results/marry_shadowmap_pcss.png" alt="marry_shadowmap_pcss" width="200" />
 </center>
+
 
 - SSR加速结构：min-depth mipmap
 
