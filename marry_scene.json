@@ -37,14 +37,14 @@
          },
          "shaders": {
             "vertex_shader" : "nmap_VertexShader",
-            "fragment_shader" : "phong_FragmentShader"
+            "fragment_shader" : "mipmap_FragmentShader"
          },
          "transform" : {
             "scale" : [],
             "translate" : [],
             "rotate" : {
                "angle" : 0.0,
-               "axis" : []
+               "axis" : [0.0, 1.0, 0.0]
             }
          }
       },
@@ -57,11 +57,11 @@
          },
          "textures" : {
             "colorTexture_path" : "C:/vscode_files/openrenderer/texture/checker.png",
-            "normalTexture_path" : "C:/vscode_files/openrenderer/texture/hmap.jpg"
+            "normalTexture_path" : "C:/vscode_files/openrenderer/texture/brickwall_normal.jpg"
          },
          "shaders": {
             "vertex_shader" : "nmap_VertexShader",
-            "fragment_shader" : "phong_FragmentShader"
+            "fragment_shader" : "mipmap_FragmentShader"
          },
          "transform" : {
             "scale" : [ 0.15, 0.15, 0.15 ],

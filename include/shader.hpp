@@ -7,7 +7,7 @@
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
 #define PCSS_NUM_SAMPLES 16
-#define SSR_NUM_SAMPLES 4
+#define SSR_NUM_SAMPLES 16
 
 namespace openrenderer{
 
@@ -176,24 +176,22 @@ inline Eigen::Vector3f randomSampleDirection()
     static std::default_random_engine generator;
     return Eigen::Vector3f{randomFloats(generator), randomFloats(generator), randomFloats(generator)}.normalized();
 }
-inline Eigen::Vector3f sampleHemisphereUniform(float& seed, float& pdf) 
+inline Eigen::Vector3f sampleHemisphereUniform(float& seed) 
 {
     Eigen::Vector2f uv = rand2(seed);
     float z = uv.x();
     float phi = uv.y() * float(MY_2PI);
     float sinTheta = sqrt(1.0f - z*z);
     Eigen::Vector3f dir = Eigen::Vector3f{sinTheta * cos(phi), sinTheta * sin(phi), z};
-    pdf = float(INV_2PI);
-    return dir;
+    return dir.normalized();
 }
-inline Eigen::Vector3f sampleHemisphereRandom(float& pdf) 
+inline Eigen::Vector3f sampleHemisphereRandom() 
 {
     float x_1 = get_random_float(), x_2 = get_random_float();
     float z = std::fabs(1.0f - 2.0f * x_1);
     float r = std::sqrt(1.0f - z * z), phi = 2 * MY_PI * x_2;
     Eigen::Vector3f dir{r*std::cos(phi), r*std::sin(phi), z};
-    pdf = float(INV_2PI);
-    return dir;
+    return dir.normalized();
 }
 inline float getShadowBias(float c, int light_id, const Point& input)
 {
@@ -450,8 +448,8 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
 }
 inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
 {
-    float step_size = 0.01f;
-    int max_search_time = 1000;
+    float step_size = 0.001f;
+    int max_search_time = 10000;
 
     Eigen::Vector3f current_ori = ori;
     Eigen::Vector3f step = step_size * dir;
@@ -464,7 +462,9 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
         int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f);
         float ori_depth = -viewPos.z() / viewPos.w();
         float min_scene_depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
-        if(ori_depth > min_scene_depth + 1e-2)
+        if(min_scene_depth>999.f)
+            return false;
+        if(ori_depth > min_scene_depth + 1e-3)
         {
             hitPos = current_ori;
             return true;
@@ -479,7 +479,7 @@ inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3
     float step_size = 0.01f;
     int level = 0;
     float rate = pow(2.f, float(level));
-    int max_search_time = 20;
+    int max_search_time = 100;
     bool status = false;
 
     Eigen::Vector3f current_ori = ori;
@@ -493,7 +493,14 @@ inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3
         int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f) / int(rate);
         float ori_depth = -viewPos.z() / viewPos.w();
         float min_scene_depth = -(*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::A);
-        if(ori_depth > min_scene_depth + 1e-2)
+        if(min_scene_depth>999.f)   // 若追踪光线打到足够远则直接返回false
+            return false;
+        if(ori_depth >= min_scene_depth-1e-3 && ori_depth <= min_scene_depth+1e-3)
+        {
+            hitPos = current_ori;
+            return true;
+        }
+        else if(ori_depth > min_scene_depth+1e-3)
         {
             level--;
             rate = pow(2.f, float(level));
@@ -503,7 +510,7 @@ inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3
         else
         {
             level++;
-            level = std::min(level, 8);
+            level = std::min(level, 6);
             rate = pow(2.f, float(level));
             step = (step_size * rate) * dir;
         }
@@ -515,11 +522,11 @@ inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3
         current_ori += step;
     }
 
-    if(status)
-    {
-        hitPos = current_ori;
-        return true;
-    }
+    // if(status)   //绥靖政策（导致噪点变多）
+    // {
+    //     hitPos = current_ori;
+    //     return true;
+    // }
     return false;
 }
 
@@ -555,7 +562,7 @@ inline Eigen::Vector3f depth_FragmentShader(const Point& input)
 }
 inline Eigen::Vector3f shadowmap_FragmentShader(const Point& input)
 {
-    float visibility = calVisibility(ubo.lights, input, "hard");
+    float visibility = calVisibility(ubo.lights, input, "pcf");
     return {visibility, visibility, visibility};
 }
 inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
@@ -566,7 +573,7 @@ inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
     Eigen::Vector3f pos_color = { pos_x, pos_y, pos_z };
     float depth = (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::A);
     // std::cout << depth << '\n';
-    Eigen::Vector3f depth_color = -Eigen::Vector3f{ depth, depth, depth } / 100.f;
+    Eigen::Vector3f depth_color = -Eigen::Vector3f{ depth, depth, depth } / 50.f;
     float nor_x = (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B);
     float nor_y = (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float nor_z = (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
@@ -575,13 +582,13 @@ inline Eigen::Vector3f gbuffer_FragmentShader(const Point& input)
     float alb_y = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G);
     float alb_z = (*input.gbuffers->albedo_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R);
     Eigen::Vector3f alb_color = { alb_x, alb_y, alb_z };
-    return nor_color;
+    return depth_color;
 }
 inline Eigen::Vector3f mipmap_FragmentShader(const Point& input)
 {
     if(!ubo.depth_mipmap)
         return {0.f, 0.f, 0.f};
-    int level = 3;
+    int level = 5;
     int x = input.screen_pos.x() / int(pow(2, level));
     int y = input.screen_pos.y() / int(pow(2, level));
     float pos_x = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::B);
@@ -589,7 +596,7 @@ inline Eigen::Vector3f mipmap_FragmentShader(const Point& input)
     float pos_z = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::R);
     Eigen::Vector3f pos_color = { pos_x, pos_y, pos_z };
     float depth = (*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::A);
-    Eigen::Vector3f depth_color = -Eigen::Vector3f{ depth, depth, depth } / 10.f;
+    Eigen::Vector3f depth_color = -Eigen::Vector3f{ depth, depth, depth } / 50.f;
 
     return depth_color;
 }
@@ -749,7 +756,7 @@ inline Eigen::Vector3f mirror_FragmentShader(const Point& input)
                                                   (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
         Eigen::Vector3f reflect_dir = reflect(wo, normal);
         Eigen::Vector3f hitPos = {0.f, 0.f, 0.f};
-        if(rayMarch(pos, reflect_dir, hitPos, input))
+        if(rayMarchAcc(pos, reflect_dir, hitPos, input))
         {
             Eigen::Vector2i screenHitPos = worldPos2screenPos(hitPos);
             Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::B),
@@ -788,7 +795,9 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
     Eigen::Vector3f position = Eigen::Vector3f{ (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
                                                 (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
                                                 (*input.gbuffers->position_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
-    
+    Eigen::Vector3f normal = Eigen::Vector3f{ (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::B),
+                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::G),
+                                                (*input.gbuffers->normal_buffer)(input.screen_pos.y(), input.screen_pos.x(), ColorBit::R) };
     Eigen::Vector3f L_dir = {0.f, 0.f, 0.f};
     Eigen::Vector3f L_indir = {0.f, 0.f, 0.f};
     int hit_count = 0;
@@ -809,8 +818,8 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
         Eigen::Vector3f subLightPos = {0.f, 0.f, 0.f};
         for(int i=0; i<SSR_NUM_SAMPLES; i++)
         {
-            // Eigen::Vector3f local_dir = sampleHemisphereUniform(seed, pdf).normalized();
-            Eigen::Vector3f local_dir = sampleHemisphereRandom(pdf);
+            // Eigen::Vector3f local_dir = sampleHemisphereUniform(seed).normalized();
+            Eigen::Vector3f local_dir = sampleHemisphereRandom();
             // Eigen::Vector3f local_dir = randomSampleDirection();
             Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
             if(rayMarchAcc(position, global_dir, subLightPos, input))

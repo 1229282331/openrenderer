@@ -77,7 +77,7 @@
          "obj_path" : "C:/vscode_files/openrenderer/obj/cornellbox/floor.obj",
          "color" : {
             "enable" : true,
-            "rgb" : [ 0.725, 0.71, 0.68 ]
+            "rgb" : [ 0.825, 0.81, 0.78 ]
          },
          "textures" : {
             "colorTexture_path" : "",

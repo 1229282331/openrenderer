@@ -69,7 +69,7 @@ void Render::drawFrame(const Loader& obj_loader)
         ubo.shadowmap_zFar = 100.f;
         ubo.set_view(ubo.lights[i].pos, ubo.lookatPoint, Eigen::Vector3f(0.f, 1.f, 0.f));
         ubo.set_orthoProjection(-10.f, 10.f, -10.f, 10.f, ubo.shadowmap_zNear, ubo.shadowmap_zFar);
-        // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), 0.1f, 100.f);
+        // ubo.set_projection(75.f/180.f*float(MY_PI), float(m_width)/float(m_height), ubo.shadowmap_zNear, ubo.shadowmap_zFar);
         ubo.lights[i].lightVP = ubo.projection * ubo.view;
         start = std::chrono::high_resolution_clock::now();
         for(auto& obj : obj_loader.objects)
