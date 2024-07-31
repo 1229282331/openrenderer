@@ -35,9 +35,10 @@ cmake --build . -j
 - Two-pass rendering 光源视角深度图
 
 <center class="half">
-	<img src="./results/lightdepth0.png" alt="lightdepth_marry" style="zoom: 60%;" />
-	<img src="./results/lightdepth1.png" alt="lightdepth_cornellbox" style="zoom: 60%;" />
+	<img src="./results/lightdepth0.png" alt="lightdepth_marry" style="zoom: 30%;" />
+	<img src="./results/lightdepth1.png" alt="lightdepth_cornellbox" style="zoom: 30%;" />
 </center>
+
 
 
 - 延迟渲染 gbuffer（position+depth+normal+albedo）
