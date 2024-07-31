@@ -43,17 +43,17 @@ cmake --build . -j
 
 - 延迟渲染 gbuffer（position+depth+normal+albedo）
   <center class="half">
-  	<img src="./results/gbuffer_marry_pos.png" alt="gbuffer_marry_pos" style="zoom: 35%;" />
-  	<img src="./results/gbuffer_marry_depth.png" alt="gbuffer_marry_depth" style="zoom: 35%;" />
-      <img src="./results/gbuffer_marry_normal.png" alt="gbuffer_marry_normal" style="zoom: 35%;" />
-      <img src="./results/gbuffer_marry_albedo.png" alt="gbuffer_marry_albedo" style="zoom: 35%;" />
+  	<img src="./results/gbuffer_marry_pos.png" alt="gbuffer_marry_pos" width="200" />
+  	<img src="./results/gbuffer_marry_depth.png" alt="gbuffer_marry_depth" width="200" />
+      <img src="./results/gbuffer_marry_normal.png" alt="gbuffer_marry_normal" width="200" />
+      <img src="./results/gbuffer_marry_albedo.png" alt="gbuffer_marry_albedo" width="200" />
   </center>
   
   <center class="half">
-    	<img src="./results/gbuffer_cornellbox_pos.png" alt="gbuffer_marry_pos" style="zoom: 35%;" />
-    	<img src="./results/gbuffer_cornellbox_depth.png" alt="gbuffer_marry_depth" style="zoom: 35%;" />
-    	<img src="./results/gbuffer_cornellbox_normal.png" alt="gbuffer_marry_normal" style="zoom: 35%;" />
-    	<img src="./results/gbuffer_cornellbox_albedo.png" alt="gbuffer_marry_albedo" style="zoom: 35%;" />
+    	<img src="./results/gbuffer_cornellbox_pos.png" alt="gbuffer_marry_pos" width="200" />
+    	<img src="./results/gbuffer_cornellbox_depth.png" alt="gbuffer_marry_depth" width="200" />
+    	<img src="./results/gbuffer_cornellbox_normal.png" alt="gbuffer_marry_normal" width="200" />
+    	<img src="./results/gbuffer_cornellbox_albedo.png" alt="gbuffer_marry_albedo" width="200" />
   </center>
 - shadowmap（Hard+PCF+PCSS）
 
