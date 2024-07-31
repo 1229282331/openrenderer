@@ -67,42 +67,44 @@ cmake --build . -j
 - SSR加速结构：min-depth mipmap
 
 <center class="half">
-	<img src="./results/mipmap0.png" alt="mipmap0" style="zoom: 25%;" />
-	<img src="./results/mipmap1.png" alt="mipmap1" style="zoom: 25%;" />
-    <img src="./results/mipmap2.png" alt="mipmap2" style="zoom: 25%;" />
-    <img src="./results/mipmap3.png" alt="mipmap3" style="zoom: 25%;" />
-	<img src="./results/mipmap4.png" alt="mipmap4" style="zoom: 25%;" />
-    <img src="./results/mipmap5.png" alt="mipmap5" style="zoom: 25%;" />
+	<img src="./results/mipmap0.png" alt="mipmap0" width="100" />
+	<img src="./results/mipmap1.png" alt="mipmap1" width="100" />
+    <img src="./results/mipmap2.png" alt="mipmap2" width="100" />
+    <img src="./results/mipmap3.png" alt="mipmap3" width="100" />
+	<img src="./results/mipmap4.png" alt="mipmap4" width="100" />
+    <img src="./results/mipmap5.png" alt="mipmap5" width="100" />
 </center>
 
 
 - 屏幕空间全局光照（SSAO+SSDO+SSR）
 
 <center class="half">
-	<img src="./results/marry_ssao.png" alt="marry_ssao" style="zoom: 40%;" />
-	<img src="./results/marry_ssdo.png" alt="marry_ssdo" style="zoom: 40%;" />
-    <img src="./results/marry_ssr.png" alt="marry_ssr" style="zoom: 40%;" />
+	<img src="./results/marry_ssao.png" alt="marry_ssao" width="200" />
+	<img src="./results/marry_ssdo.png" alt="marry_ssdo" width="200" />
+    <img src="./results/marry_ssr.png" alt="marry_ssr" width="200" />
 </center>
 
 <center class="half">
-	<img src="./results/cornellbox_ssao.png" alt="cornellbox_ssao" style="zoom: 40%;" />
-	<img src="./results/cornellbox_ssdo.png" alt="cornellbox_ssdo" style="zoom: 40%;" />
-    <img src="./results/cornellbox_ssr.png" alt="cornellbox_ssr" style="zoom: 40%;" />
+	<img src="./results/cornellbox_ssao.png" alt="cornellbox_ssao" width="200" />
+	<img src="./results/cornellbox_ssdo.png" alt="cornellbox_ssdo" width="200" />
+    <img src="./results/cornellbox_ssr.png" alt="cornellbox_ssr" width="200" />
 </center>
+
 
 - 法线/凹凸贴图
 
 <center class="half">
-	<img src="./results/hmap.jpg" alt="hmap" style="zoom: 30%;" />
-	<img src="./results/marry_normalmap1.png" alt="marry_normalmap1" style="zoom: 40%;" />
-    <img src="./results/marry_bumpmap1.png" alt="marry_bumpmap1" style="zoom: 40%;" />
+	<img src="./results/hmap.jpg" alt="hmap" width="200" />
+	<img src="./results/marry_normalmap1.png" alt="marry_normalmap1" width="200" />
+    <img src="./results/marry_bumpmap1.png" alt="marry_bumpmap1" width="200" />
 </center>
 
 <center class="half">
-	<img src="./results/brickwall_normal.jpg" alt="brickwall_normal" style="zoom: 23.5%;" />
-	<img src="./results/marry_normalmap2.png" alt="marry_normalmap2" style="zoom: 40%;" />
-    <img src="./results/marry_bumpmap2.png" alt="marry_bumpmap2" style="zoom: 40%;" />
+	<img src="./results/brickwall_normal.jpg" alt="brickwall_normal" width="200" />
+	<img src="./results/marry_normalmap2.png" alt="marry_normalmap2" width="200" />
+    <img src="./results/marry_bumpmap2.png" alt="marry_bumpmap2" width="200" />
 </center>
+
 
 
 ### 实时渲染
