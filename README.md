@@ -115,7 +115,7 @@ cmake --build . -j
 
 #### 基础Blinn-Phong模型
 
-![video load failed](./results/marry_phong.gif =500x)
+<img src="./results/marry_phong.gif" width="500">
 
 #### 特效全开（PCSS软阴影、SSAO、SSDO）
 
