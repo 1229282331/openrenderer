@@ -115,19 +115,19 @@ cmake --build . -j
 
 #### 基础Blinn-Phong模型
 
-<img src="./results/marry_phong.gif" width="500">
+<img src="./results/marry_phong.gif" width="400">
 
 #### 特效全开（PCSS软阴影、SSAO、SSDO）
 
-![video load failed](./results/marry_all.gif)
+<img src="./results/marry_all.gif" width="400">
 
 #### 屏幕光线追踪
 
 - 采样数=1
 
-![video load failed](./results/cornellbox_ssr1.gif)
+<img src="./results/cornellbox_ssr1.gif" width="400">
 
 - 采样数=16
 
-![video load failed](./results/cornellbox_ssr16.gif)
+<img src="./results/cornellbox_ssr16.gif" width="400">
 
