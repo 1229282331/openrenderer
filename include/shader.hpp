@@ -7,7 +7,7 @@
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
 #define PCSS_NUM_SAMPLES 16
-#define SSR_NUM_SAMPLES 16
+#define SSR_NUM_SAMPLES 1
 
 namespace openrenderer{
 

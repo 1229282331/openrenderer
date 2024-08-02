@@ -37,7 +37,7 @@
          },
          "shaders": {
             "vertex_shader" : "nmap_VertexShader",
-            "fragment_shader" : "mipmap_FragmentShader"
+            "fragment_shader" : "phong_FragmentShader"
          },
          "transform" : {
             "scale" : [],
@@ -61,7 +61,7 @@
          },
          "shaders": {
             "vertex_shader" : "nmap_VertexShader",
-            "fragment_shader" : "mipmap_FragmentShader"
+            "fragment_shader" : "phong_FragmentShader"
          },
          "transform" : {
             "scale" : [ 0.15, 0.15, 0.15 ],
