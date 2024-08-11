@@ -49,7 +49,7 @@ public:
             delete m_maps[i];
         m_maps.clear();
     }
-    std::vector<Buffer<T>*> maps() { return m_maps; }
+    std::vector<Buffer<T>*>& maps() { return m_maps; }
 
 private:
     int m_levels;

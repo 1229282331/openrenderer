@@ -7,7 +7,7 @@
 extern openrenderer::Uniform ubo;
 #define EPS 6e-4
 #define PCSS_NUM_SAMPLES 16
-#define SSR_NUM_SAMPLES 1
+#define SSR_NUM_SAMPLES 16
 
 namespace openrenderer{
 
@@ -448,8 +448,8 @@ inline Eigen::Vector3f calSSDO(const Point& input, float radius=0.05f)
 }
 inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
 {
-    float step_size = 0.001f;
-    int max_search_time = 10000;
+    float step_size = 0.01f;
+    int max_search_time = 1000;
 
     Eigen::Vector3f current_ori = ori;
     Eigen::Vector3f step = step_size * dir;
@@ -464,7 +464,7 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
         float min_scene_depth = -(*input.gbuffers->position_buffer)(y, x, ColorBit::A);
         if(min_scene_depth>999.f)
             return false;
-        if(ori_depth > min_scene_depth + 1e-3)
+        if(ori_depth > min_scene_depth+1e-2)
         {
             hitPos = current_ori;
             return true;
@@ -474,45 +474,44 @@ inline bool rayMarch(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& 
 
     return false;
 }
-inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3f& hitPos, const Point& input)
+inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, int mipmap_level, Eigen::Vector3f& hitPos, const Point& input)
 {
     float step_size = 0.01f;
     int level = 0;
-    float rate = pow(2.f, float(level));
-    int max_search_time = 100;
-    bool status = false;
+    int rate = pow(2, level);
+    int rate_max = pow(2, mipmap_level);
+    int max_search_time = 50;
 
     Eigen::Vector3f current_ori = ori;
-    Eigen::Vector3f step = (step_size * rate) * dir;
+    Eigen::Vector3f step = (step_size * float(rate)) * dir;
     current_ori += step;
     for(int i=0; i<max_search_time; i++)
     {
         Eigen::Vector4f viewPos = ubo.view * Eigen::Vector4f{current_ori.x(), current_ori.y(), current_ori.z(), 1.f};
         Eigen::Vector4f ndcPos = ubo.projection * viewPos;
-        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f) / int(rate);
-        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f) / int(rate);
+        int x = int((ndcPos.x()/ndcPos.w()+1.f)*float(ubo.width)/2.f / float(rate));
+        int y = int((ndcPos.y()/ndcPos.w()+1.f)*float(ubo.height)/2.f / float(rate));
         float ori_depth = -viewPos.z() / viewPos.w();
         float min_scene_depth = -(*ubo.depth_mipmap->maps()[level])(y, x, ColorBit::A);
         if(min_scene_depth>999.f)   // 若追踪光线打到足够远则直接返回false
             return false;
-        if(ori_depth >= min_scene_depth-1e-3 && ori_depth <= min_scene_depth+1e-3)
+        if(ori_depth >= min_scene_depth-1e-4 && ori_depth <= min_scene_depth+1e-4)
         {
             hitPos = current_ori;
             return true;
         }
-        else if(ori_depth > min_scene_depth+1e-3)
+        if(ori_depth > min_scene_depth+1e-2)
         {
             level--;
-            rate = pow(2.f, float(level));
-            step = (-step_size * rate) * dir;
-            status = true;
+            rate /= 2;
+            step = (-step_size * float(rate)) * dir;
         }
         else
         {
             level++;
-            level = std::min(level, 6);
-            rate = pow(2.f, float(level));
-            step = (step_size * rate) * dir;
+            level = std::min(level, mipmap_level);
+            rate = std::min(rate*2, rate_max);
+            step = (step_size * float(rate)) * dir;
         }
         if(level<0)
         {
@@ -522,11 +521,6 @@ inline bool rayMarchAcc(Eigen::Vector3f ori, Eigen::Vector3f dir, Eigen::Vector3
         current_ori += step;
     }
 
-    // if(status)   //绥靖政策（导致噪点变多）
-    // {
-    //     hitPos = current_ori;
-    //     return true;
-    // }
     return false;
 }
 
@@ -756,7 +750,7 @@ inline Eigen::Vector3f mirror_FragmentShader(const Point& input)
                                                   (*input.gbuffers->normal_buffer)(screenPos.y(), screenPos.x(), ColorBit::R) };
         Eigen::Vector3f reflect_dir = reflect(wo, normal);
         Eigen::Vector3f hitPos = {0.f, 0.f, 0.f};
-        if(rayMarchAcc(pos, reflect_dir, hitPos, input))
+        if(rayMarchAcc(pos, reflect_dir, 4, hitPos, input))
         {
             Eigen::Vector2i screenHitPos = worldPos2screenPos(hitPos);
             Eigen::Vector3f albedo = Eigen::Vector3f{ (*input.gbuffers->albedo_buffer)(screenHitPos.y(), screenHitPos.x(), ColorBit::B),
@@ -822,9 +816,9 @@ inline Eigen::Vector3f ssr_FragmentShader(const Point& input)
             Eigen::Vector3f local_dir = sampleHemisphereRandom();
             // Eigen::Vector3f local_dir = randomSampleDirection();
             Eigen::Vector3f global_dir = (input.attrs.TBN * local_dir).normalized();
-            if(rayMarchAcc(position, global_dir, subLightPos, input))
+            if(rayMarchAcc(position, global_dir, 5, subLightPos, input))
             {
-                r2_inverse = 1.f / std::pow((ubo.lights[k].pos-subLightPos).norm(), 2.f);
+                r2_inverse = std::clamp(1.f / std::pow((ubo.lights[k].pos-subLightPos).norm(), 2.f), 0.f, 1.f);
                 Eigen::Vector3f subLight_wi = (ubo.lights[k].pos-subLightPos).normalized();
                 Eigen::Vector2i subLightScreenPos = worldPos2screenPos(subLightPos);
                 Eigen::Vector3f indir_intensity = r2_inverse * ubo.lights[k].intensity;

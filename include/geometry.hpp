@@ -102,18 +102,35 @@ struct Uniform{
     {
         alpha = alpha / 180.f * float(MY_PI);
         alpha = alpha > 360.0f ? 0.f : alpha;
-        Eigen::Matrix4f R, T;
-        RT_decompose(models[index], R, T);
-        models[index] = T * translate(trans) * rotate(alpha, axis) * R;
+        Eigen::Vector3f scaleVec;
+        Eigen::Vector3f translateVec;
+        Eigen::Matrix3f rotateMat;
+        decomposeTRS(models[index], scaleVec, translateVec, rotateMat);
+        Eigen::Matrix4f R;
+        R << rotateMat(0,0), rotateMat(0,1), rotateMat(0,2), 0.f,
+             rotateMat(1,0), rotateMat(1,1), rotateMat(1,2), 0.f,
+             rotateMat(2,0), rotateMat(2,1), rotateMat(2,2), 0.f,
+             0.f, 0.f, 0.f, 1.f;
+
+        models[index] = translate(trans) * translate(translateVec) * rotate(alpha, axis) * R * scale(scaleVec.x(), scaleVec.y(), scaleVec.z());
     }
     void move_model(int index, const Eigen::Matrix4f& modelMat)
     {
-        Eigen::Matrix4f R0, T0;
-        Eigen::Matrix4f R1, T1;
-        RT_decompose(models[index], R0, T0);
-        RT_decompose(modelMat, R1, T1);
-        
-        models[index] = T1 * T0 * R1 * R0;
+        Eigen::Vector3f scaleVec0, scaleVec1;
+        Eigen::Vector3f translateVec0, translateVec1;
+        Eigen::Matrix3f rotateMat0, rotateMat1;
+        Eigen::Matrix4f R0,R1;
+        decomposeTRS(models[index], scaleVec0, translateVec0, rotateMat0);
+        decomposeTRS(modelMat, scaleVec1, translateVec1, rotateMat1);
+        R0 << rotateMat0(0,0), rotateMat0(0,1), rotateMat0(0,2), 0.f,
+              rotateMat0(1,0), rotateMat0(1,1), rotateMat0(1,2), 0.f,
+              rotateMat0(2,0), rotateMat0(2,1), rotateMat0(2,2), 0.f,
+              0.f, 0.f, 0.f, 1.f;
+        R1 << rotateMat1(0,0), rotateMat1(0,1), rotateMat1(0,2), 0.f,
+              rotateMat1(1,0), rotateMat1(1,1), rotateMat1(1,2), 0.f,
+              rotateMat1(2,0), rotateMat1(2,1), rotateMat1(2,2), 0.f,
+              0.f, 0.f, 0.f, 1.f;
+        models[index] = translate(translateVec1) * translate(translateVec0) * R1 * R0 * scale(scaleVec1.x(), scaleVec1.y(), scaleVec1.z()) * scale(scaleVec0.x(), scaleVec0.y(), scaleVec0.z());
     }
     void init(int width_, int height_, std::vector<Eigen::Matrix4f> modelMats, const Eigen::Vector3f& cameraPos_, float aspect, 
                 const Eigen::Vector3f& lookat=Eigen::Vector3f::Zero(), const Eigen::Vector3f& up=Eigen::Vector3f(0.f, 1.f, 0.f), float fovy=45.f, float z_near=0.1f, float z_far=10.f, const Eigen::Vector3f& lightDir_={0.f, 0.f, 1.f}, const std::vector<Light>& lights_=std::vector<Light>())

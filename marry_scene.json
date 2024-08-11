@@ -26,7 +26,7 @@
       },
       {
          "name" : "marry",
-         "obj_path" : "C:/vscode_files/openrenderer/obj/Marry.obj",
+         "obj_path" : "C:/vscode_files/openrenderer/obj/marry.obj",
          "color" : {
             "enable" : false,
             "rgb" : []

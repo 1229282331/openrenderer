@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
     printf("[simple pass] cost %lfms/%.2f%% \n", t2, t2/(t0+t1+t2+t3)*100.f);
     printf("clear() cost %lfms/%.2f%% \n", t3, t3/(t0+t1+t2+t3)*100.f);
     printf("rasterize() cost %lfms/%.2f%% \n", t4, t4/(t2)*100.f);
-    printf("frame-time: %.2fms/%.2fms \n", (t0+t1+t2+t3)/100.f, t/100.f);
+    // printf("frame-time: %.2fms/%.2fms \n", (t0+t1+t2+t3)/100.f, t/1.f);
     return 0;    
 }
 

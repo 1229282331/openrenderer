@@ -127,6 +127,10 @@ cmake --build . -j
 
 ![video load failed](./results/cornellbox_ssr1.mp4)
 
+- 采样数=4
+
+![video load failed](./results/cornellbox_ssr4.mp4)
+
 - 采样数=16
 
 ![video load failed](./results/cornellbox_ssr16.mp4)

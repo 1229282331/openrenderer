@@ -207,6 +207,7 @@ ControlResult GuiControl::control(const SDL_Event& event)
                         m_newPos = inverse2Dto3D(mousePosX, m_render->height()-mousePosY, 0.7f, m_render->width(), m_render->height(), Eigen::Matrix4f::Identity(), ubo.view, ubo.projection);
                         Eigen::Vector3f rotateVec = m_newPos - m_oldPos;
                         Eigen::Vector3f axis = rotateVec.cross(Eigen::Vector3f(0.f, 0.f, 1.f)).normalized();
+                        std::cout << axis << "\n\n";
                         float angle = (ubo.cameraPos.z()<0.f?1.f:-1.f) * 360.f * 0.5f * (abs(rotateVec.x())/abs(m_loader->objects[m_id].bounding_box.p_max.x()-m_loader->objects[m_id].bounding_box.p_min.x()) + abs(rotateVec.y())/abs(m_loader->objects[m_id].bounding_box.p_max.y()-m_loader->objects[m_id].bounding_box.p_min.y()));
                         ubo.move_model(m_id, angle, axis, Eigen::Vector3f::Zero());
                         m_oldPos = m_newPos;
